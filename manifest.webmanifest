@@ -1,0 +1,14 @@
+{
+  "name": "CNC Código — O Jogo",
+  "short_name": "CNC Código",
+  "description": "Jogo para aprender a escrever programas CNC (Fanuc) com simulador 3D.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

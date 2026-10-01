@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CNC Código</title>
+<meta name="theme-color" content="#0d1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CNC Código">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="css/style.css?v=1">
+<link rel="stylesheet" href="css/code.css?v=1">
+</head>
+<body data-theme="steel">
+<a href="#app" class="skip">Pular para o conteúdo</a>
+
+<header id="topbar">
+  <div class="brand">
+    <button class="logo" id="logoMark" type="button" aria-label="CNC Código">G</button>
+    <div>
+      <div class="brand-title">CNC <span>CÓDIGO</span></div>
+      <div class="brand-sub" id="rankLabel">Aprendiz CNC</div>
+    </div>
+  </div>
+  <div class="xpwrap" role="group" aria-label="Experiência">
+    <div class="xpbar" id="xpBar" role="progressbar" aria-label="Progresso de experiência" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="xpFill"></i></div>
+    <div class="xptxt"><span id="xpTxt">0 / 150 XP</span></div>
+  </div>
+  <div class="stats">
+    <div class="stat" title="Moedas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg><span class="vh">Moedas:</span><span id="coinTxt">0</span></div>
+    <div class="stat" title="Fichas de dica"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3 11c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a6 6 0 0 0-3-11z"/></svg><span class="vh">Fichas de dica:</span><span id="hintTxt">3</span></div>
+    <div class="stat" title="Estrelas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.9 6.4.6-4.8 4.3 1.4 6.3L12 17l-5.6 3.1 1.4-6.3-4.8-4.3 6.4-.6z"/></svg><span class="vh">Estrelas:</span><span id="starTxt">0</span></div>
+  </div>
+  <nav class="navbtns">
+    <button class="btn ghost" id="navChoose" title="Trocar entre Torno e Centro de Usinagem">⇄ Máquina</button>
+    <button class="btn ghost" id="navMap">Mapa</button>
+    <button class="btn ghost" id="navBench" title="Simulador livre: cole qualquer programa e veja usinar">Simulador</button>
+    <button class="btn ghost" id="navShop">Loja</button>
+    <button class="btn ghost" id="navHelp">Manual</button>
+  </nav>
+</header>
+
+<main id="app" tabindex="-1">
+
+  <section id="screen-choose" class="screen">
+    <div class="map-head">
+      <h1>Escolha a máquina</h1>
+      <p>XP, moedas e patente valem para as duas trilhas — estrelas ficam separadas.</p>
+    </div>
+    <div id="chooseTrack" class="map-track">
+      <div class="node" tabIndex="0" role="button" data-machine="torno">
+        <div class="num">TRILHA</div>
+        <div class="nm">Torno CNC — Fanuc</div>
+        <div class="sb">Do M3 ao programa completo O7044: G0, G1, G2/G3, G71, G72, G70, G74, G75, G76.</div>
+      </div>
+      <div class="node" tabIndex="0" role="button" data-machine="fresa">
+        <div class="num">TRILHA</div>
+        <div class="nm">Centro de Usinagem</div>
+        <div class="sb">O livro do SENAI: G43, G41/G42, ,R ,C, G81–G86, M98/M99, polar, bolsas, Mach 9 e Siemens.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-map" class="screen active">
+    <div class="map-head">
+      <h1 id="mapTitle">Trilha do Torno</h1>
+      <p id="mapStats"></p>
+    </div>
+    <div id="mapTrack" class="map-track"></div>
+    <div class="map-foot"><div class="unlock-strip" id="unlockStrip"></div></div>
+  </section>
+
+  <section id="screen-play" class="screen">
+    <div class="play-head">
+      <button class="btn ghost sm" id="btnBack">‹ Mapa</button>
+      <div class="lv-title">
+        <h1 id="lvName">Fase</h1>
+        <span id="lvSub">objetivo</span>
+      </div>
+      <div class="play-meta">
+        <button class="chip chipbtn" id="btnAula" title="Rever a aula desta fase">Aula</button>
+        <button class="chip chipbtn" id="btnCola" title="Todos os códigos que você já aprendeu">Cola</button>
+        <span class="chip" id="chipTry">Tentativas: 0</span>
+        <span class="chip" id="chipTime">00:00</span>
+      </div>
+    </div>
+    <div class="play-grid">
+      <div class="simslot" id="playSimSlot"></div>
+      <div class="panel tablepanel">
+        <div class="panel-bar">
+          <span>Programa</span>
+          <span class="hintline" id="tipLine"></span>
+        </div>
+        <div class="tablewrap"><table id="progTable"></table></div>
+        <div class="actions">
+          <button class="btn primary" id="btnCheck">Verificar</button>
+          <button class="btn" id="btnHint" title="Nível 1 é grátis; aprofundar gasta uma ficha 💡">Dica</button>
+          <button class="btn" id="btnReveal" title="Escreve o próximo bloco errado. A fase passa a valer no máximo 2 ★.">Revelar bloco <small>(40 🪙)</small></button>
+          <button class="btn danger" id="btnExplain">Explicar</button>
+        </div>
+        <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+        <div class="hintbox" id="hintBox"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-bench" class="screen">
+    <div class="map-head">
+      <h1>Simulador livre</h1>
+      <p>Cole ou escreva qualquer programa (por exemplo, um que o Claude gerou) e veja usinar. Cada linha é explicada ao lado.</p>
+    </div>
+    <div class="play-grid">
+      <div class="simslot" id="benchSimSlot"></div>
+      <div class="panel benchpanel">
+        <div class="panel-bar">
+          <span>Editor</span>
+          <div class="mini-tools">
+            <select id="benchMachine" aria-label="Máquina"><option value="torno">Torno</option><option value="fresa">Centro de usinagem</option></select>
+            <button class="mini" id="benchExample">Exemplo</button>
+          </div>
+        </div>
+        
+        <textarea id="benchCode" spellcheck="false" autocapitalize="characters" aria-label="Programa CNC"></textarea>
+        <div class="actions">
+          <button class="btn primary" id="benchRun">Simular</button>
+          <button class="btn" id="benchClear">Limpar</button>
+        </div>
+        <div class="benchlines" id="benchLines"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-shop" class="screen">
+    <div class="map-head"><h1>Oficina / Loja</h1><p>Gaste moedas em coisas que facilitam a vida do programador.</p></div>
+    <div class="shop-grid" id="shopGrid"></div>
+  </section>
+
+  <section id="screen-help" class="screen">
+    <div class="map-head"><h1>Manual do Programador</h1><p>Consulta rápida — baseado no livro do SENAI e nos programas Fanuc da escola.</p></div>
+    <div class="help-grid" id="helpGrid"></div>
+  </section>
+</main>
+
+<!-- ============ SIMULADOR (estilo SwanSoft / Fanuc 0i) — movido entre a fase e o simulador livre ============ -->
+<div class="simpanel" id="simPanel">
+  <div class="mview">
+    <div class="mbar">
+      <span class="mtitle" id="mTitle">TORNO CNC · FANUC 0i-TC</span>
+      <button class="mbtn" id="btnStock" title="Dimensões da peça bruta">Peça bruta</button>
+      <button class="mbtn" id="btnTools" title="Montar ferramentas na torre / magazine">Ferramentas</button>
+      <span class="crt-tabs" role="tablist">
+        <button class="crt-tab on" id="tab3d" role="tab" aria-selected="true">3D</button>
+        <button class="crt-tab" id="tab2d" role="tab" aria-selected="false">DESENHO</button>
+      </span>
+    </div>
+    <div class="crt-view">
+      <div id="view3d"></div>
+      <canvas id="cv" role="img" aria-label="Desenho técnico da peça"></canvas>
+      <div class="crt-nosim" id="noSim">Esta fase não tem simulação: é tradução entre comandos.</div>
+      <div class="crt-alarm" id="crtAlarm" role="alert"></div>
+      <div class="vbtns"><button class="mini" id="opPath" aria-pressed="true" title="Mostrar o percurso">Percurso</button><button class="mini" id="opView" title="Centralizar a vista">Centralizar</button></div>
+      <div class="crt-hint">arraste: girar · roda/pinça: zoom · shift+arraste: mover</div>
+    </div>
+  </div>
+
+  <div class="ctrl">
+    <div class="fanuc">
+      <div class="crt">
+        <div class="crt-top"><span id="crtPage">POSIÇÃO ABSOLUTA</span><span id="crtProg">O0000 N0000</span></div>
+        <div class="crt-body">
+          <div class="pg" id="pgPOS">
+            <div class="crt-axes" id="crtAxes"></div>
+            <div class="crt-side"><div class="crt-fs" id="crtFS"></div><div class="crt-lamps" id="crtLamps"></div></div>
+          </div>
+          <div class="pg" id="pgPROG"><div class="proglist" id="progList"></div></div>
+          <div class="pg" id="pgOFS"><div class="ofslist" id="ofsList"></div></div>
+          <div class="pg" id="pgMSG"><div class="msglist" id="msgList"></div></div>
+          <div class="mdi" id="mdiBox"><span>MDI&gt;</span><input id="mdiIn" spellcheck="false" autocomplete="off" autocapitalize="characters" placeholder="ex.: T0101  ·  M3 S500  ·  G0 X50. Z5."></div>
+        </div>
+        <div class="crt-modal" id="crtModal">G00 G97 G21 G40 G54 G90</div>
+        <div class="crt-stat"><span id="crtMode">MEM</span><span id="crtRun">****</span><span id="crtAlm"></span><span id="crtClock">00:00:00</span></div>
+      </div>
+      <div class="fkeys">
+        <button class="fk on" data-pg="POS">POS</button><button class="fk" data-pg="PROG">PROG</button>
+        <button class="fk" data-pg="OFS">OFS/SET</button><button class="fk" data-pg="MSG">MESSAGE</button>
+      </div>
+    </div>
+
+    <div class="oppanel" id="opPanel">
+      <div class="opgroup">
+        <div class="oplbl">MODO</div>
+        <div class="oprow modes">
+          <button class="key" data-mode="EDIT">EDIT</button><button class="key" data-mode="MEM">MEM<small>AUTO</small></button>
+          <button class="key" data-mode="MDI">MDI</button><button class="key" data-mode="JOG">JOG</button>
+          <button class="key" data-mode="REF">REF<small>ZRN</small></button>
+        </div>
+      </div>
+      <div class="opgroup">
+        <div class="oplbl">EIXOS <span class="reflamps" id="refLamps"></span></div>
+        <div class="oprow axes" id="axisKeys"></div>
+      </div>
+      <div class="opgroup">
+        <div class="oplbl">FUSO · REFRIGERAÇÃO</div>
+        <div class="oprow">
+          <button class="key" id="kCW" title="Fuso horário (JOG)">↻ CW</button><button class="key" id="kStop" title="Parar fuso (JOG)">■ STOP</button>
+          <button class="key" id="kCCW" title="Fuso anti-horário (JOG)">↺ CCW</button><button class="key" id="kCool" title="Refrigeração (JOG)">💧 COOL</button>
+        </div>
+      </div>
+      <div class="opgroup">
+        <div class="oplbl">OPÇÕES</div>
+        <div class="oprow">
+          <button class="key tg" id="kSBK" aria-pressed="false" title="Single block: um bloco por CYCLE START">SBK</button>
+          <button class="key tg" id="kDRN" aria-pressed="false" title="Dry run: avanços rápidos">DRN</button>
+          <button class="key tg" id="kOPT" aria-pressed="false" title="Optional stop: para no M1">OPT STOP</button>
+          <button class="key tg" id="kBDT" aria-pressed="false" title="Block delete: pula blocos com /">BDT</button>
+        </div>
+      </div>
+      <div class="opgroup ovr">
+        <label>AVANÇO <select id="ovFeed"><option value="0.25">25%</option><option value="0.5">50%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="3">300%</option></select></label>
+        <label>RÁPIDO <select id="ovRapid"><option value="0.25">F0</option><option value="0.25">25%</option><option value="0.5">50%</option><option value="1" selected>100%</option></select></label>
+      </div>
+      <div class="oprow cycle">
+        <button class="opb start" id="opStart" title="CYCLE START"><i></i>CYCLE START</button>
+        <button class="opb hold" id="opHold" title="FEED HOLD"><i></i>FEED HOLD</button>
+        <button class="opb reset" id="opReset" title="RESET"><i></i>RESET</button>
+        <button class="emg" id="opEmg" title="Parada de emergência">EMERG.</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal wide" id="modalTools" role="dialog" aria-modal="true" aria-labelledby="toolsTitle">
+  <h2 id="toolsTitle">Ferramentas</h2>
+  <p class="msub" id="toolsSub"></p>
+  <div class="explain-body"><table class="tooltab" id="toolTable"></table></div>
+  <div class="modal-actions">
+    <button class="btn ghost" id="toolsDefault">Montar as da fase</button>
+    <button class="btn ghost" id="toolsMeasure">Medir todas (zerar corretores)</button>
+    <button class="btn primary" id="toolsOk">Aplicar</button>
+  </div>
+</div>
+<div class="modal" id="modalStock" role="dialog" aria-modal="true" aria-labelledby="stockTitle">
+  <h2 id="stockTitle">Peça bruta</h2>
+  <div id="stockBody" class="stockform"></div>
+  <div class="modal-actions">
+    <button class="btn ghost" id="stockDefault">Padrão da fase</button>
+    <button class="btn primary" id="stockOk">Aplicar</button>
+  </div>
+</div>
+
+<!-- ============ MODAIS ============ -->
+<div class="overlay" id="overlay" aria-hidden="true"></div>
+
+<div class="modal" id="modalResult" role="dialog" aria-modal="true" aria-labelledby="resTitle">
+  <img id="resShot" alt="">
+  <div class="stars" id="resStars" role="img" aria-label="0 de 3 estrelas"><span aria-hidden="true">☆</span><span aria-hidden="true">☆</span><span aria-hidden="true">☆</span></div>
+  <div class="resline" id="resLine"></div>
+  <h2 id="resTitle">Programa aprovado!</h2>
+  <p id="resText"></p>
+  <div class="rewards" id="resRewards"></div>
+  <div class="res-prog" id="resProg"></div>
+  <div class="modal-actions">
+    <button class="btn ghost" id="resRepeat">Repetir</button>
+    <button class="btn primary" id="resNext">Próxima fase ›</button>
+  </div>
+</div>
+
+<div class="modal wide" id="modalAula" role="dialog" aria-modal="true" aria-labelledby="aulaTitle">
+  <div class="aula-kick">AULA</div>
+  <h2 id="aulaTitle">Aula</h2>
+  <div id="aulaBody" class="explain-body"></div>
+  <div class="modal-actions"><button class="btn primary" id="aulaClose">Entendi, bora programar ›</button></div>
+</div>
+
+<div class="modal wide" id="modalExplain" role="dialog" aria-modal="true" aria-labelledby="expTitle">
+  <h2 id="expTitle">Como escrever, bloco a bloco</h2>
+  <div id="explainBody" class="explain-body"></div>
+  <div class="modal-actions">
+    <button class="btn ghost" id="expClose">Fechar e tentar de novo</button>
+    <button class="btn danger" id="expFill">Desistir e ver a resposta <small>(fase fica em 1 ★)</small></button>
+  </div>
+</div>
+
+<div class="modal wide" id="modalUnlock" role="dialog" aria-modal="true" aria-labelledby="unTitle">
+  <h2 id="unTitle">Desbloqueado!</h2>
+  <div id="unBody" class="explain-body"></div>
+  <div class="modal-actions"><button class="btn primary" id="unClose">Beleza</button></div>
+</div>
+
+<div id="tutor" class="tutor">
+  <div class="spot" id="tutSpot"></div>
+  <div class="bubble" id="tutBubble" role="dialog" aria-modal="false" aria-labelledby="tutStep" aria-describedby="tutText">
+    <div class="bstep" id="tutStep">PASSO 1</div>
+    <div id="tutText"></div>
+    <div class="berr" id="tutErr" role="alert"></div>
+    <button class="btn ghost sm" id="tutGive" style="display:none">Mostrar a resposta</button>
+    <div class="bactions">
+      <button class="btn ghost sm" id="tutSkip">Pular</button>
+      <button class="btn ghost sm" id="tutBack">‹ Voltar</button>
+      <button class="btn primary sm" id="tutNext">Próximo ›</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<canvas id="fx"></canvas>
+
+<script src="js/vendor/three.min.js"></script>
+<script src="js/codes.js?v=1"></script>
+<script src="js/cnc.js?v=1"></script>
+<script src="js/levels.js?v=1"></script>
+<script src="js/sim3d.js?v=1"></script>
+<script src="js/game.js?v=1"></script>
+</body>
+</html>
