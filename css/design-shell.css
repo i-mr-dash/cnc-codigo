@@ -1,0 +1,358 @@
+/* ================= CNC CÓDIGO — casca (topbar, mapa, loja, manual, modais) =================
+   Direção: "placa de máquina / folha de processo".
+   - Títulos em fonte DIN do sistema (Bahnschrift no Windows, DIN Alternate no iPad,
+     sans-serif-condensed no Android) — a letra das placas e etiquetas de máquina.
+   - Números sempre em mono tabular, como no visor do comando.
+   - Estado de cada fase por lâmpada de sinalização (andon): verde feito, âmbar próxima.
+   - Faixa zebrada só no CHEFE.
+   Só usa as variáveis do tema, então vale para steel, blueprint, paper, neon, brasa e forja. */
+
+:root{
+  --display:Bahnschrift,"DIN Alternate","DIN Condensed","Roboto Condensed","sans-serif-condensed","Arial Narrow","Segoe UI",system-ui,sans-serif;
+  --hazard-dark:#16181b;
+  --bevel:inset 0 -2px 0 rgba(0,0,0,.22);
+  --lift:inset 0 1px 0 color-mix(in srgb,var(--ink) 7%,transparent);
+  --ease-out:cubic-bezier(.2,.9,.3,1);
+}
+
+/* ---------- botões da casca: tecla com chanfro inferior ---------- */
+#topbar .btn,.modal .btn,#screen-shop .btn,#screen-help .btn,.bubble .btn{
+  transition:background-color .15s,border-color .15s,color .15s,transform .08s;
+}
+.modal .btn.primary,#screen-shop .btn.primary,#screen-help .btn.primary,.bubble .btn.primary{box-shadow:var(--bevel)}
+.modal .btn:active,#screen-shop .btn:active,#screen-help .btn:active,.bubble .btn:active{transform:translateY(1px)}
+.modal .btn:disabled,#screen-shop .btn:disabled{transform:none}
+
+/* =========================================================================
+   TOPBAR
+   ========================================================================= */
+#topbar{box-shadow:var(--lift),0 1px 0 color-mix(in srgb,#000 25%,transparent)}
+.brand{flex:0 0 auto;min-width:0}
+.logo{font-family:var(--display);font-weight:700;box-shadow:var(--bevel);border-radius:var(--r-sm)}
+.brand-title{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.06em;white-space:nowrap;line-height:1.1}
+.brand-sub{font-size:11.5px;letter-spacing:.02em;white-space:nowrap}
+
+/* barra de XP com escala de 10 % — como um mostrador */
+.xpbar{position:relative;height:8px;background:var(--bg2)}
+.xpbar::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),color-mix(in srgb,var(--panel) 85%,transparent) calc(10% - 1px) 10%)}
+.xptxt{margin-top:4px}
+
+/* contadores como visor: fundo afundado, número mono */
+.stat{background:var(--bg2);box-shadow:inset 0 1px 2px rgba(0,0,0,.22);font-weight:600}
+.stat span:last-child{font-weight:700;min-width:2ch;text-align:right}
+.stat .ic{color:var(--acc)}
+
+/* navegação: teclas juntas, a tela atual fica "acesa" */
+.navbtns{gap:0;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg2);overflow:hidden;flex:0 1 auto;min-width:0}
+.navbtns .btn{border:0;border-radius:0;background:transparent;color:var(--muted);padding:9px 14px;font-weight:600;position:relative}
+.navbtns .btn+.btn{border-left:1px solid var(--line)}
+@media(hover:hover) and (pointer:fine){ .navbtns .btn:hover{color:var(--ink);background:var(--panel2)} }
+body:has(#screen-choose.active) #navChoose,
+body:has(#screen-map.active) #navMap,
+body:has(#screen-bench.active) #navBench,
+body:has(#screen-shop.active) #navShop,
+body:has(#screen-help.active) #navHelp{color:var(--ink);background:var(--panel2);box-shadow:inset 0 -3px 0 var(--acc)}
+body:has(#screen-play.active) #navMap{color:var(--ink);box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--acc) 45%,transparent)}
+
+/* =========================================================================
+   CABEÇALHO DAS TELAS
+   ========================================================================= */
+.map-head{margin-bottom:20px}
+.map-head h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,2.6vw,32px);letter-spacing:.01em;line-height:1.1;margin:0 0 6px}
+.map-head h1:focus{outline:none}
+.map-head p{margin:0;max-width:72ch;line-height:1.5}
+#mapStats{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+#mapStats b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.goal{position:relative;flex:0 0 200px;max-width:200px;height:8px;margin:0;background:var(--bg2)}
+.goal::after{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),color-mix(in srgb,var(--panel) 85%,transparent) calc(10% - 1px) 10%)}
+.goal-txt{font-size:13px}
+.goal-txt b{color:var(--acc)}
+
+/* =========================================================================
+   MAPA — placas das fases
+   ========================================================================= */
+.map-track{gap:14px}
+.node{
+  padding:14px 14px 12px;border-radius:var(--r);
+  box-shadow:var(--lift);
+  transition:border-color .15s,background-color .15s,transform .15s var(--ease-out);
+}
+@media(hover:hover) and (pointer:fine){
+  .node:not(.locked):hover{transform:translateY(-2px)}
+}
+.node .num{display:flex;align-items:baseline;gap:6px;font-size:10.5px;letter-spacing:.14em;font-weight:600;color:var(--muted);padding-right:22px}
+.node .num b{font:700 21px/1 var(--mono);letter-spacing:0;color:var(--ink);font-variant-numeric:tabular-nums}
+.node .nm{font-family:var(--display);font-weight:700;font-size:17px;line-height:1.2;margin:8px 0 4px;letter-spacing:.01em}
+.node .sb{font-family:var(--mono);font-size:12px;line-height:1.45}
+.node .st{font-size:17px;letter-spacing:3px;margin-top:10px;line-height:1}
+.node .st b{color:var(--acc)}
+.node .rec{font-size:11px;margin-top:6px}
+.node .gate{font-size:12px;margin-top:8px;font-weight:600}
+
+/* lâmpada de estado (andon) */
+.lampn{position:absolute;top:14px;right:14px;width:10px;height:10px;border-radius:50%;
+  border:1.5px solid color-mix(in srgb,var(--muted) 70%,transparent);background:transparent}
+.node.done .lampn{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 45%,transparent)}
+.node.perfect .lampn{border-color:var(--ok);background:var(--ok);box-shadow:0 0 6px color-mix(in srgb,var(--ok) 70%,transparent)}
+.node.cur .lampn{border-color:var(--acc);background:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent)}
+.node.resume .lampn{border-color:var(--acc2);background:var(--acc2);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc2) 25%,transparent)}
+@media(prefers-reduced-motion:no-preference){
+  .node.cur .lampn,.node.resume .lampn{animation:andon 1.6s ease-in-out infinite}
+}
+@keyframes andon{50%{box-shadow:0 0 0 6px transparent}}
+
+/* fase atual: placa destacada */
+.node.cur{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 7%,var(--panel))}
+.node.cur:not(.resume) .num::after{content:"PRÓXIMA";margin-left:auto;font:700 10px var(--mono);letter-spacing:.12em;color:var(--acc)}
+.node.resume{border-color:var(--acc2);background:color-mix(in srgb,var(--acc2) 8%,var(--panel))}
+.node.resume .num{color:var(--acc2)}
+.node.resume .st{color:var(--acc2);letter-spacing:0}
+
+/* feita com 3 estrelas: discreta, já resolvida */
+.node.perfect{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+
+/* bloqueada: chapa sem pintura */
+.node.locked{filter:none;background:color-mix(in srgb,var(--panel) 45%,var(--bg));border-style:dashed;box-shadow:none}
+.node.locked .nm,.node.locked .num b{color:var(--muted)}
+.node.locked .sb,.node.locked .st{opacity:.75}
+.node .lock{top:12px;right:12px;color:var(--muted);font-size:0;line-height:0}
+.node .lock .ic{width:16px;height:16px}
+
+/* CHEFE: faixa zebrada de perigo */
+.node.boss{padding-top:22px;border-color:var(--acc)}
+.node.boss::before{content:"";position:absolute;left:0;right:0;top:0;height:8px;
+  background:repeating-linear-gradient(-45deg,var(--acc) 0 7px,var(--hazard-dark) 7px 14px)}
+.node.boss .badge{top:16px;right:32px;font:700 10px var(--mono);letter-spacing:.12em;padding:3px 6px;border-radius:var(--r-sm)}
+.node.boss .lampn{top:20px}
+.node.boss .lock{top:18px;right:12px}
+.node.boss.locked .badge{background:transparent;color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc);right:34px}
+.node.boss.locked::before{opacity:.55}
+.node.boss .num{padding-right:96px}
+/* modo infinito: faixa tracejada na cor secundária */
+.node.endless{border-color:var(--acc2)}
+.node.endless::before{background:repeating-linear-gradient(90deg,var(--acc2) 0 14px,transparent 14px 20px);height:4px}
+.node.endless .badge{background:var(--acc2);color:var(--on-acc2)}
+.node.endless .st{color:var(--acc2);letter-spacing:0}
+
+/* faixa de desbloqueios */
+.map-foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.map-foot::before{content:"Desbloqueios";display:block;font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.02em;color:var(--ink);margin-bottom:10px}
+.unlock-strip{margin-top:0;gap:8px}
+.uchip{display:inline-flex;align-items:center;gap:7px;font-size:13px;padding:6px 11px 6px 9px;border-style:solid;
+  border-color:color-mix(in srgb,var(--line) 70%,transparent);background:transparent}
+.uchip small{font-family:var(--mono);font-size:11px;opacity:.85}
+.uc-mk{font-style:normal;display:inline-grid;place-items:center;width:16px;height:16px;font-size:11px;line-height:1}
+.uc-mk .ic{width:13px;height:13px}
+.uchip.on{background:color-mix(in srgb,var(--ok) 9%,transparent)}
+.uchip.on .uc-mk{background:var(--ok);color:var(--bg);border-radius:50%;font-weight:800}
+[data-theme="paper"] .uchip.on .uc-mk{color:#fff}
+.uchip.next .uc-mk{color:var(--acc)}
+
+/* =========================================================================
+   ESCOLHA A MÁQUINA
+   ========================================================================= */
+#chooseTrack{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px;max-width:980px}
+#chooseTrack .node{padding:20px 22px 18px;display:flex;flex-direction:column;min-height:250px}
+#chooseTrack .node .num{display:none}
+#chooseTrack .mach-ic{width:132px;height:70px;margin:0 0 10px -4px;color:var(--acc2);
+  fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+#chooseTrack .mach-ic .cl{stroke-dasharray:8 3 2 3;stroke-width:1;opacity:.6}
+#chooseTrack .mach-ic .tl{stroke:var(--acc);fill:color-mix(in srgb,var(--acc) 25%,transparent)}
+#chooseTrack .node .nm{font-size:24px;margin:4px 0 6px}
+#chooseTrack .node .sb{font-family:inherit;font-size:13.5px;line-height:1.55;min-height:0;max-width:52ch}
+#chooseTrack .node .rec{margin-top:auto;padding-top:16px;display:flex;align-items:center;gap:12px;font-size:12.5px;color:var(--muted)}
+.ch-prog{flex:1;max-width:220px;height:8px;border:1px solid var(--line);background:var(--bg2);border-radius:var(--r-sm);overflow:hidden}
+.ch-prog i{display:block;height:100%;background:var(--acc)}
+#chooseTrack .node.cur{background:color-mix(in srgb,var(--acc) 6%,var(--panel))}
+#chooseTrack .node.cur .rec{color:var(--acc)}
+#chooseTrack .node::after{content:"Entrar ›";position:absolute;right:20px;top:22px;font:700 12px var(--mono);letter-spacing:.06em;color:var(--muted);transition:color .15s,transform .15s var(--ease-out)}
+@media(hover:hover) and (pointer:fine){
+  #chooseTrack .node:hover::after{color:var(--acc);transform:translateX(3px)}
+}
+
+/* =========================================================================
+   LOJA
+   ========================================================================= */
+.shop-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:14px}
+.shop-sec{display:flex;align-items:center;gap:12px;margin:14px 0 2px;font:700 16px var(--display);letter-spacing:.02em;text-transform:none;color:var(--ink)}
+.shop-sec::after{content:"";flex:1;height:1px;background:var(--line)}
+.shop-sec:first-child{margin-top:0}
+#screen-shop .card{display:flex;flex-direction:column;box-shadow:var(--lift);padding:16px 16px 14px}
+#screen-shop .card h3{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.01em}
+#screen-shop .card p{max-width:48ch}
+.buy{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:12px;border-top:1px dashed var(--line)}
+.buy .price{display:inline-flex;align-items:center;gap:6px;font:700 15px var(--mono);font-variant-numeric:tabular-nums}
+.buy .price .ic{width:16px;height:16px}
+#screen-shop .card.owned{border-color:var(--ok)}
+#screen-shop .card.owned .price{color:var(--ok)}
+#screen-shop .card.short .price{color:var(--muted)}
+#screen-shop .card.short .btn.primary{background:transparent;color:var(--acc);box-shadow:none}
+/* amostra das cores do tema (o próprio data-theme define as variáveis) */
+.swatch{display:grid;grid-template-columns:3fr 2fr 1fr 1fr;height:30px;margin:-2px 0 12px;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+.swatch i:nth-child(1){background:var(--bg)}
+.swatch i:nth-child(2){background:var(--panel2);border-left:1px solid var(--line)}
+.swatch i:nth-child(3){background:var(--acc)}
+.swatch i:nth-child(4){background:var(--acc2)}
+.swatch[data-theme="steel"]{--bg:#0d1117;--panel2:#1d2836;--line:#2a3648;--acc:#ffb020;--acc2:#43d0ff}
+
+/* =========================================================================
+   MANUAL
+   ========================================================================= */
+.help-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px;align-items:start}
+#screen-help .card{box-shadow:var(--lift);padding:16px 18px}
+#screen-help .card h3{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.01em;
+  padding-bottom:9px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+#screen-help .card p{color:var(--ink);opacity:.9}
+#screen-help .card ul,#screen-help .card ol{color:var(--ink);font-size:13.5px;line-height:1.65;padding-left:20px;margin:0}
+#screen-help .card li{margin-bottom:3px}
+#screen-help .card li::marker{color:var(--muted)}
+#screen-help .card table{font-size:13px}
+#screen-help .card tr:last-child td{border-bottom:0}
+@media(hover:hover) and (pointer:fine){ #screen-help .card tr:hover td{background:color-mix(in srgb,var(--acc2) 6%,transparent)} }
+#screen-help .card td{line-height:1.45}
+#screen-help .card code{font-size:12.5px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--line) 60%,transparent);border-radius:var(--r-sm);padding:1px 5px}
+#screen-help .card .actions{padding:12px 0 0;border-top:0;margin-top:4px}
+#screen-help .card .actions .btn{flex:0 0 auto}
+
+/* =========================================================================
+   MODAIS
+   ========================================================================= */
+.overlay{background:color-mix(in srgb,#05080c 66%,transparent);-webkit-backdrop-filter:none;backdrop-filter:none}
+[data-theme="paper"] .overlay{background:color-mix(in srgb,#16202c 48%,transparent)}
+.modal{border-top:3px solid var(--acc);box-shadow:0 18px 48px rgba(0,0,0,.45);
+  transition:opacity .2s ease,transform .26s var(--ease-out),visibility 0s linear .26s}
+.modal.on{transition:opacity .2s ease,transform .26s var(--ease-out),visibility 0s}
+[data-theme="paper"] .modal{box-shadow:0 18px 48px rgba(20,35,55,.28)}
+.modal h2{font-family:var(--display);font-weight:700;font-size:clamp(21px,2.2vw,25px);letter-spacing:.01em;line-height:1.2}
+.modal p{line-height:1.55}
+.modal-actions{gap:10px;padding-top:14px;border-top:1px solid var(--line)}
+.modal.wide .modal-actions{margin-top:14px}
+.explain-body h4{font-family:var(--display);font-size:14px;letter-spacing:.04em;text-transform:none;color:var(--ink)!important;margin:16px 0 8px}
+.explain-body .exrow{line-height:1.55}
+
+/* ---------- resultado ---------- */
+#modalResult{padding:26px 26px 22px}
+#modalResult .stars{font-size:46px;letter-spacing:10px;line-height:1;margin:2px 0 0;padding-left:10px}
+#modalResult .stars span.on{color:var(--acc);text-shadow:0 2px 0 color-mix(in srgb,#000 25%,transparent)}
+/* carimbo de inspeção */
+#modalResult .resline{width:auto;align-self:center;margin-top:14px;display:inline-block;padding:5px 12px 4px;
+  border:2px solid currentColor;border-radius:var(--r-sm);font:700 12px var(--mono);letter-spacing:.2em;transform:rotate(-2deg)}
+#modalResult:has(#resStars span:nth-child(3).on) .resline{color:var(--ok)}
+#modalResult:not(:has(#resStars span:nth-child(2).on)) .resline{color:var(--muted)}
+@media(prefers-reduced-motion:no-preference){
+  #modalResult.on .resline{animation:stamp .34s .45s var(--ease-out) backwards}
+}
+@keyframes stamp{from{opacity:0;transform:rotate(-2deg) scale(1.6)}}
+#modalResult h2{margin:12px 0 0}
+#modalResult p{margin:6px 0 0;max-width:46ch;align-self:center}
+#modalResult .rewards{gap:8px;margin-top:14px}
+.rw{font:700 13px var(--mono);font-variant-numeric:tabular-nums;background:var(--bg2);box-shadow:inset 0 1px 2px rgba(0,0,0,.18)}
+.rw.dim{font-family:inherit;font-weight:500}
+#modalResult .res-prog{margin-top:16px}
+.rp-bar{position:relative;height:8px;background:var(--bg2)}
+.rp-bar::after{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),color-mix(in srgb,var(--panel) 85%,transparent) calc(10% - 1px) 10%)}
+.rp-line b{color:var(--ink)}
+#modalResult .modal-actions{border-top:0;padding-top:4px}
+
+/* ---------- aula / cola: código como tecla ---------- */
+.aula-kick{display:inline-block;align-self:flex-start;font:700 11px var(--mono);letter-spacing:.18em;color:var(--acc2);
+  border:1px solid color-mix(in srgb,var(--acc2) 55%,transparent);padding:3px 8px;border-radius:var(--r-sm);margin-bottom:8px}
+.aula-intro{max-width:70ch}
+.aula-cards{gap:10px}
+.acard{display:grid;grid-template-columns:auto 1fr;column-gap:12px;align-items:start;
+  border:1px solid var(--line);border-left-width:1px;background:var(--panel2);padding:12px;box-shadow:var(--lift)}
+.acard>*{grid-column:2}
+.acard .k{grid-column:1;grid-row:1 / span 3;min-width:54px;text-align:center;font:700 17px/1 var(--mono);
+  color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,var(--bg2));
+  border:1px solid color-mix(in srgb,var(--acc) 60%,var(--line));border-bottom-width:3px;border-radius:var(--r-sm);padding:9px 8px 7px}
+.cola-grid .acard .k{font-size:15px}
+.acard .t{margin:1px 0 3px;font-size:14px}
+.acard .e{font-size:12px}
+.aula-tips{max-width:72ch}
+.aula-tips li::marker{color:var(--acc)}
+
+/* ---------- desbloqueio ---------- */
+#unBody>.exrow{display:block;position:relative;padding-left:36px}
+#modalUnlock:not(.finish) #unBody>.exrow::before{content:"✓";position:absolute;left:11px;top:12px;width:16px;height:16px;border-radius:50%;
+  background:var(--ok);color:var(--bg);font:800 10px/16px var(--mono);text-align:center}
+[data-theme="paper"] #modalUnlock:not(.finish) #unBody>.exrow::before{color:#fff}
+#modalUnlock.finish #unBody>.exrow{padding-left:14px}
+
+/* ---------- diploma ---------- */
+.diploma{border:2px solid var(--acc);outline:1px solid color-mix(in srgb,var(--acc) 40%,transparent);outline-offset:3px;margin:8px 4px 16px;padding:20px 16px 16px}
+.dip-seal{font-family:var(--display);font-weight:700;border-radius:50%;box-shadow:0 0 0 3px var(--panel2),0 0 0 4px var(--acc)}
+.dip-kick{font-family:var(--mono);letter-spacing:.2em;margin-top:6px}
+.dip-name{font-family:var(--display);font-size:26px;letter-spacing:.02em}
+.dip-bar{position:relative;height:8px;background:var(--bg2)}
+
+/* ---------- ferramentas / peça bruta ---------- */
+.tooltab th{font-family:var(--display);letter-spacing:.06em}
+.tooltab tr:last-child td{border-bottom:0}
+.stockform label,.stockform>span{font-weight:600}
+
+/* celular: ações do modal empilhadas, a principal por cima e larga */
+@media(max-width:560px){
+  .modal:not(#modalResult) .modal-actions{flex-direction:column-reverse;align-items:stretch}
+  .modal:not(#modalResult) .modal-actions .btn{width:100%;white-space:normal}
+  .modal.wide{padding:18px 16px}
+  .acard .k{min-width:46px;font-size:15px;padding:8px 6px 6px}
+}
+
+/* =========================================================================
+   TUTORIAL
+   ========================================================================= */
+.bubble{border:1px solid var(--line);border-top:3px solid var(--acc);box-shadow:0 14px 36px rgba(0,0,0,.45);padding:14px 16px 14px}
+.bstep{display:inline-block;font:700 11px var(--mono);letter-spacing:.14em;background:var(--acc);color:var(--on-acc);
+  padding:3px 8px 2px;border-radius:var(--r-sm);margin-bottom:10px}
+#tutText{line-height:1.6}
+#tutText b{color:var(--acc)}
+#tutText code{background:var(--bg2);padding:1px 5px;border-radius:var(--r-sm)}
+.bactions{padding-top:12px;border-top:1px solid var(--line)}
+.bactions #tutSkip{margin-right:auto;color:var(--muted);border-color:transparent}
+.spot{box-shadow:0 0 0 9999px color-mix(in srgb,#05080c 70%,transparent)}
+
+/* =========================================================================
+   TOAST — mensagem do comando
+   ========================================================================= */
+#toast{display:flex;align-items:center;gap:10px;text-align:left;font-weight:600;line-height:1.4;
+  padding:11px 18px 11px 14px;border:1px solid var(--line);border-top:2px solid var(--acc);
+  box-shadow:0 10px 30px rgba(0,0,0,.4);transition:opacity .22s ease,transform .3s var(--ease-out)}
+#toast::before{content:"";flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:var(--acc);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent)}
+[data-theme="paper"] #toast{box-shadow:0 10px 30px rgba(20,35,55,.22)}
+
+/* =========================================================================
+   RESPONSIVO
+   ========================================================================= */
+@media(max-width:1180px){
+  .navbtns .btn{padding:9px 11px}
+}
+@media(max-width:759.98px){
+  .navbtns{width:100%;overflow-x:auto;scrollbar-width:none}
+  .navbtns::-webkit-scrollbar{display:none}
+  .navbtns .btn{flex:1 0 auto;padding:9px 6px;font-size:12.5px}
+  .brand-title{font-size:16px}
+  .stats{margin-left:auto}
+  .map-head{margin-bottom:14px}
+  #chooseTrack .node{min-height:0}
+  #chooseTrack .node::after{top:20px;right:16px}
+}
+@media(max-width:560px){
+  .map-track{gap:8px}
+  .node .num b{font-size:18px}
+  .node .nm{font-size:15.5px;margin-top:6px}
+  .node .sb{font-size:11.5px}
+  .node.boss .num{padding-right:0;flex-wrap:wrap}
+  .node.boss .badge{position:static;display:inline-block;margin-top:8px}
+  .node.cur:not(.resume) .num::after{display:none}
+  .goal{flex-basis:100%;max-width:100%}
+  #chooseTrack .mach-ic{width:110px;height:58px}
+  #chooseTrack .node .nm{font-size:21px}
+  .stat{padding:5px 7px}
+}
+@media(min-width:760px) and (max-width:1100px){
+  .brand-sub{max-width:120px;overflow:hidden;text-overflow:ellipsis}
+}

@@ -145,12 +145,17 @@ $('#btnBack').onclick=()=>show('map');
 })();
 
 /* ---------------- escolha / mapa ---------------- */
+const MACH_ICON = {
+  torno:`<svg class="mach-ic" viewBox="0 0 120 64" aria-hidden="true"><path class="cl" d="M2 30h116"/><rect x="6" y="8" width="18" height="44" rx="1"/><path d="M24 14h7v32h-7"/><path d="M31 21h50v18H31z"/><path d="M81 25h14v10H81z"/><path d="M95 27.5h8v5h-8"/><path class="tl" d="M66 39l6 0 6 12h-18z"/><path d="M60 51h24v9H60z"/></svg>`,
+  fresa:`<svg class="mach-ic" viewBox="0 0 120 64" aria-hidden="true"><path class="cl" d="M60 0v44"/><path d="M48 2h24v14H48z"/><path d="M52 16h16v7H52z"/><path class="tl" d="M56 23h8v17h-8z"/><path d="M56 28l8 4M56 34l8 4"/><path d="M22 44h76v10H22z"/><path d="M50 44v4h20v-4"/><path d="M10 58h100"/></svg>`
+};
 function renderChoose(){
   $$('#chooseTrack [data-machine]').forEach(d=>{
-    const m=d.dataset.machine, on=S.machine===m;
+    const m=d.dataset.machine, on=S.machine===m, ts=starsForMachine(m), max=maxStarsFor(m);
     d.classList.toggle('cur',on);
+    if(!d.querySelector('.mach-ic')) d.insertAdjacentHTML('afterbegin',MACH_ICON[m]||'');
     let rec=d.querySelector('.rec'); if(!rec){ rec=document.createElement('div'); rec.className='rec'; d.appendChild(rec); }
-    rec.textContent=`${starsForMachine(m)} / ${maxStarsFor(m)} ★${on?' · trilha atual':''}`;
+    rec.innerHTML=`<span class="ch-prog" aria-hidden="true"><i style="width:${Math.round(ts/max*100)}%"></i></span><span>${ts} / ${max} ★${on?' · trilha atual':''}</span>`;
   });
 }
 $$('#chooseTrack [data-machine]').forEach(d=>{
@@ -186,16 +191,17 @@ function renderMap(){
       <span class="goal-txt">${f>0?`Faltam <b>${f} ★</b> para o CHEFE`:'Estrelas suficientes — complete as fases anteriores para liberar o CHEFE'}</span>`);
   }
   if(P && !P.won && P.lv.machine===S.machine)
-    t.appendChild(nodeEl(`<div class="num">EM ANDAMENTO</div><div class="nm">Retomar</div><div class="sb">${esc(P.lv.endless?P.lv.name:'Fase '+P.lv.id+' — '+P.lv.name)}</div><div class="st">▶</div>`,'cur',resumeLevel));
+    t.appendChild(nodeEl(`<div class="num">EM ANDAMENTO</div><div class="nm">Retomar</div><div class="sb">${esc(P.lv.endless?P.lv.name:'Fase '+P.lv.id+' — '+P.lv.name)}</div><div class="st">▶</div><i class="lampn" aria-hidden="true"></i>`,'cur resume',resumeLevel));
   let curMarked=false;
+  const LOCK_IC='<svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></svg>';
   LEVELS.forEach((lv,i)=>{
     const st=S.stars[skey(lv)]||0, open=isUnlocked(lv), b=S.best[skey(lv)];
     const cur=open&&st===0&&!curMarked; if(cur) curMarked=true;
-    const d=nodeEl(`<div class="num">FASE ${String(lv.id).padStart(2,'0')}</div><div class="nm">${esc(lv.name)}</div>
+    const d=nodeEl(`<div class="num">FASE <b>${String(lv.id).padStart(2,'0')}</b></div><div class="nm">${esc(lv.name)}</div>
       <div class="sb">${esc(lv.sub)}</div><div class="st" aria-hidden="true">${[1,2,3].map(k=>k<=st?'<b>★</b>':'☆').join('')}</div>
-      ${b?`<div class="rec">⏱ ${mmss(b)}</div>`:''}${lv.boss?'<div class="badge">CHEFE</div>':''}
-      ${lv.boss&&!open?`<div class="gate">Requer ${BOSS} ★ — você tem ${ts}</div>`:''}${open?'':'<div class="lock" aria-hidden="true">🔒</div>'}`,
-      (open?'':'locked')+(lv.boss?' boss':'')+(cur?' cur':''),
+      ${b?`<div class="rec">recorde ${mmss(b)}</div>`:''}${lv.boss?'<div class="badge">CHEFE</div>':''}
+      ${lv.boss&&!open?`<div class="gate">Requer ${BOSS} ★ — você tem ${ts}</div>`:''}${open?'<i class="lampn" aria-hidden="true"></i>':`<div class="lock" aria-hidden="true">${LOCK_IC}</div>`}`,
+      (open?'':'locked')+(lv.boss?' boss':'')+(cur?' cur':'')+(st===3?' perfect':st>0?' done':''),
       open?()=>startLevel(lv):()=>toast(lv.boss?`O CHEFE exige ${BOSS} ★ e as fases anteriores completas.`:'Complete a fase anterior primeiro.',3500),
       `Fase ${lv.id}: ${lv.name}. ${st} de 3 estrelas.${open?'':' Bloqueada.'}`);
     d.style.setProperty('--i',i);
@@ -203,9 +209,9 @@ function renderMap(){
   });
   if(has('endless'))
     t.appendChild(nodeEl(`<div class="num">EXTRA</div><div class="nm">Modo Infinito</div><div class="sb">Peças aleatórias sem fim. Rodada ${S.endlessRun+1}.</div>
-      <div class="st">∞</div><div class="rec">🔥 sequência ${S.streak} · recorde ${S.bestStreak}</div><div class="badge">∞</div>`,'boss',()=>startLevel(makeEndless(S.endlessRun+1))));
+      <div class="st">∞</div><div class="rec">sequência ${S.streak} · recorde ${S.bestStreak}</div><div class="badge">∞</div><i class="lampn" aria-hidden="true"></i>`,'boss endless',()=>startLevel(makeEndless(S.endlessRun+1))));
   const prox=UNLOCKS.find(u=>!has(u.id));
-  $('#unlockStrip').innerHTML=UNLOCKS.map(u=>`<span class="uchip ${has(u.id)?'on':(u===prox?'next':'')}">${has(u.id)?'✓':(u===prox?'▶':'🔒')} ${u.name} <small>(${u.lvl==='boss'?'chefe':'fase '+u.lvl})</small></span>`).join('');
+  $('#unlockStrip').innerHTML=UNLOCKS.map(u=>`<span class="uchip ${has(u.id)?'on':(u===prox?'next':'')}"><i class="uc-mk" aria-hidden="true">${has(u.id)?'✓':(u===prox?'▶':LOCK_IC)}</i>${has(u.id)?'<span class="vh">Liberado:</span>':u===prox?'<span class="vh">Próximo:</span>':'<span class="vh">Bloqueado:</span>'} ${u.name} <small>${u.lvl==='boss'?'chefe':'fase '+u.lvl}</small></span>`).join('');
 }
 
 /* =========================================================================
@@ -1099,29 +1105,30 @@ addEventListener('keydown',e=>{
 /* =========================================================================
    LOJA
    ========================================================================= */
+const COIN_IC='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg><span class="vh">Moedas:</span>';
 function renderShop(){
   const g=$('#shopGrid'); g.innerHTML='';
   const sec=t=>{ const h=document.createElement('h3'); h.className='shop-sec'; h.textContent=t; g.appendChild(h); };
   sec('Ferramentas');
   SHOP.forEach(it=>{
     const own=!it.repeat && S.owned.includes(it.id);
-    const c=document.createElement('div'); c.className='card'+(own?' owned':'');
-    c.innerHTML=`<h3>${it.name}</h3><p>${it.desc}</p><div class="price">${own?'✓ Comprado':it.price+' 🪙'}</div>`;
+    const c=document.createElement('div'); c.className='card'+(own?' owned':'')+(!own&&S.coins<it.price?' short':'');
+    c.innerHTML=`<h3>${it.name}</h3><p>${it.desc}</p><div class="buy"><div class="price">${own?'✓ Comprado':COIN_IC+it.price}</div></div>`;
     if(!own){ const b=document.createElement('button'); b.className='btn primary sm'; b.textContent='Comprar';
       b.onclick=()=>{ if(S.coins<it.price){ toast('Moedas insuficientes.'); return; }
         S.coins-=it.price; if(it.id==='pack') S.hints+=3; else S.owned.push(it.id); save(); hud(); sndCoin(); renderShop(); toast(it.name+' comprado!'); };
-      c.appendChild(b); }
+      c.querySelector('.buy').appendChild(b); }
     g.appendChild(c);
   });
   sec('Temas');
   THEMES.forEach(th=>{
     const id='th_'+th.t, own=th.price===0||S.owned.includes(id)||S.unlocked.includes(id), cur=S.theme===th.t;
-    const c=document.createElement('div'); c.className='card'+(cur?' owned':'');
-    c.innerHTML=`<h3>${th.name}</h3><p>${th.desc}</p><div class="price">${cur?'✓ Em uso':own?'Seu':th.price+' 🪙'}</div>`;
+    const c=document.createElement('div'); c.className='card theme-card'+(cur?' owned':'')+(!own&&S.coins<th.price?' short':'');
+    c.innerHTML=`<div class="swatch" data-theme="${th.t}" aria-hidden="true"><i></i><i></i><i></i><i></i></div><h3>${th.name}</h3><p>${th.desc}</p><div class="buy"><div class="price">${cur?'✓ Em uso':own?'Seu':COIN_IC+th.price}</div></div>`;
     const b=document.createElement('button'); b.className='btn sm'+(own?'':' primary'); b.textContent=cur?'Em uso':own?'Usar':'Comprar'; b.disabled=cur;
     b.onclick=()=>{ if(!own){ if(S.coins<th.price){ toast('Moedas insuficientes.'); return; } S.coins-=th.price; S.owned.push(id); sndCoin(); }
       S.theme=th.t; save(); hud(); renderShop(); };
-    c.appendChild(b); g.appendChild(c);
+    c.querySelector('.buy').appendChild(b); g.appendChild(c);
   });
 }
 
