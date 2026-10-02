@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="css/style.css?v=1">
 <link rel="stylesheet" href="css/code.css?v=1">
 <link rel="stylesheet" href="css/design-shell.css?v=1">
+<link rel="stylesheet" href="css/design-play.css?v=1">
 </head>
 <body data-theme="steel">
 <a href="#app" class="skip">Pular para o conteúdo</a>
@@ -89,7 +90,11 @@
         <span class="chip" id="chipTime">00:00</span>
       </div>
     </div>
-    <div class="play-grid">
+    <div class="viewtabs" role="tablist" aria-label="Alternar entre programa e máquina">
+      <button class="vt on" role="tab" aria-selected="true" data-view="prog">Programa</button>
+      <button class="vt" role="tab" aria-selected="false" data-view="sim">Máquina<i class="vt-led" aria-hidden="true"></i></button>
+    </div>
+    <div class="play-grid" data-view="prog">
       <div class="simslot" id="playSimSlot"></div>
       <div class="panel tablepanel">
         <div class="panel-bar">
@@ -114,7 +119,11 @@
       <h1>Simulador livre</h1>
       <p>Cole ou escreva qualquer programa (por exemplo, um que o Claude gerou) e veja usinar. Cada linha é explicada ao lado.</p>
     </div>
-    <div class="play-grid">
+    <div class="viewtabs" role="tablist" aria-label="Alternar entre editor e máquina">
+      <button class="vt on" role="tab" aria-selected="true" data-view="prog">Editor</button>
+      <button class="vt" role="tab" aria-selected="false" data-view="sim">Máquina<i class="vt-led" aria-hidden="true"></i></button>
+    </div>
+    <div class="play-grid" data-view="prog">
       <div class="simslot" id="benchSimSlot"></div>
       <div class="panel benchpanel">
         <div class="panel-bar">

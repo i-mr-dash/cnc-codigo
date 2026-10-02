@@ -1,0 +1,280 @@
+/* ================= CNC CÓDIGO — acabamento da TELA DA FASE e do SIMULADOR =================
+   Carregado depois de code.css. Só aparência e layout: nenhuma regra aqui muda ids/classes usados pelo JS.
+   O painel continua sendo o SwanSoft / Fanuc 0i da escola: tela CRT azul-escura, teclas físicas, luzes. */
+
+:root{
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  /* metal do painel de operação */
+  --pn-hi:#e4e8ec; --pn-lo:#b7bec7; --pn-edge:#8c949e; --pn-ink:#3c4450;
+  /* teclas */
+  --key-face:#f7f8fa; --key-face2:#e3e6ea; --key-edge:#5f6772; --key-ink:#1d232b;
+  --key-on:#ffd84a; --key-on2:#f2c21c; --led:#35e06b;
+  /* CRT */
+  --crt-bg:#07101d; --crt-head:#174a7c; --crt-head2:#0f355c; --crt-grn:#7dffa0; --crt-yel:#ffd84a; --crt-dim:#7f93a8;
+}
+
+/* ---------------------------------------------------------------- cabeçalho da fase */
+.play-head .lv-title h1{letter-spacing:-.01em;line-height:1.2}
+.play-head .lv-title span{color:var(--muted);font-size:13px;line-height:1.4}
+#chipTime,#chipTry{font-variant-numeric:tabular-nums}
+#chipTime{font-family:var(--mono)}
+
+/* ---------------------------------------------------------------- abas Programa / Máquina
+   escondidas em tela larga; em iPad em pé e celular viram o jeito de alternar (ver fim do arquivo) */
+.viewtabs{display:none;gap:4px;padding:4px;margin:0 0 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg2)}
+.vt{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 14px;border:0;border-radius:4px;
+  background:transparent;color:var(--muted);font:700 14px/1 "Segoe UI",Inter,system-ui,sans-serif;cursor:pointer;
+  transition:background-color .16s ease,color .16s ease,transform .12s var(--ease-out)}
+.vt:active{transform:scale(.97)}
+.vt.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 0 rgba(0,0,0,.25),inset 0 0 0 1px var(--line)}
+.vt-led{width:8px;height:8px;border-radius:50%;background:color-mix(in srgb,var(--muted) 45%,transparent);transition:background-color .2s ease,box-shadow .2s ease}
+.vt-led.run{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.vt-led.alm{background:var(--err);box-shadow:0 0 0 3px color-mix(in srgb,var(--err) 25%,transparent)}
+
+/* ---------------------------------------------------------------- painel do programa */
+.tablepanel .panel-bar,.benchpanel .panel-bar{padding:10px 14px;font-size:14px}
+.tablepanel .panel-bar>span:first-child{flex:0 0 auto}
+.hintline{font-size:12px;line-height:1.4;font-weight:600;color:color-mix(in srgb,var(--acc) 85%,var(--ink));max-width:70ch}
+
+#progTable{font-size:14px;border-collapse:separate;border-spacing:0}
+#progTable th{font-size:11px;letter-spacing:.08em;padding:8px 10px;background:var(--panel2)}
+#progTable td{padding:5px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent);transition:background-color .15s ease}
+#progTable td.n{width:60px;font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+#progTable td.say{font-size:13px;line-height:1.4;color:var(--muted)}
+#progTable tr.wr td.say{color:var(--ink)}
+#progTable td.code{position:relative;width:46%}
+
+/* linhas prontas: legíveis, mas claramente "não é com você" */
+#progTable tr.given{opacity:1}
+#progTable tr.given td.n{color:color-mix(in srgb,var(--acc) 60%,var(--muted))}
+#progTable td.code .giv{font:500 14px/1.35 var(--mono);color:color-mix(in srgb,var(--ink) 66%,var(--panel));padding:7px 2px;letter-spacing:.02em}
+
+/* campo de código — onde o aluno passa a maior parte do tempo */
+#progTable input{height:40px;padding:0 34px 0 11px;font:600 15px var(--mono);letter-spacing:.03em;
+  background:var(--bg2);border:1px solid var(--line);border-radius:4px;color:var(--ink);caret-color:var(--acc2);
+  transition:border-color .15s ease,box-shadow .15s ease,background-color .15s ease}
+#progTable input::placeholder{color:color-mix(in srgb,var(--muted) 70%,transparent);font:400 13px "Segoe UI",Inter,system-ui,sans-serif;letter-spacing:0}
+@media(hover:hover) and (pointer:fine){
+  #progTable tbody tr[data-r]:hover td{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+  #progTable input:hover:not(:focus){border-color:color-mix(in srgb,var(--acc2) 45%,var(--line))}
+}
+#progTable input:focus{border-color:var(--acc2);background:var(--bg);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc2) 24%,transparent)}
+#progTable input.ok,#progTable input.err{border-width:1px}
+#progTable input.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--bg2));box-shadow:inset 0 0 0 1px var(--ok)}
+#progTable input.err{border-color:var(--err);background:color-mix(in srgb,var(--err) 10%,var(--bg2));box-shadow:inset 0 0 0 1px var(--err)}
+#progTable input.ok:focus{box-shadow:inset 0 0 0 1px var(--ok),0 0 0 3px color-mix(in srgb,var(--ok) 24%,transparent)}
+#progTable input.err:focus{box-shadow:inset 0 0 0 1px var(--err),0 0 0 3px color-mix(in srgb,var(--err) 24%,transparent)}
+#progTable input.given{color:color-mix(in srgb,var(--ink) 70%,var(--panel))}
+/* ✓ / ✕ dentro do campo: o estado não depende só da cor */
+#progTable td.code:has(input.ok)::after,#progTable td.code:has(input.err)::after{position:absolute;right:20px;top:50%;transform:translateY(-50%);
+  font:800 14px/1 "Segoe UI",system-ui,sans-serif;pointer-events:none}
+#progTable td.code:has(input.ok)::after{content:"✓";color:var(--ok)}
+#progTable td.code:has(input.err)::after{content:"✕";color:var(--err)}
+
+/* linha selecionada (a tela do comando mostra o estado depois dela) */
+#progTable tr.cur td{background:color-mix(in srgb,var(--acc2) 11%,transparent)}
+#progTable tr.cur td.n{box-shadow:none;color:var(--acc2)}
+/* linha em execução: verde + seta, igual o cursor do PROG no comando */
+#progTable tr.run td{background:color-mix(in srgb,var(--ok) 16%,transparent)}
+#progTable tr.run td.n{color:var(--ok)}
+#progTable tr.run td.n::before{content:"▶";display:inline-block;margin-right:5px;font-size:9px;vertical-align:1px}
+/* linha com alarme */
+#progTable tr.alm td{background:color-mix(in srgb,var(--err) 10%,transparent)}
+#progTable tr.alm td.n{color:var(--err)}
+#progTable tr.sep td{font:700 11px var(--mono);letter-spacing:.08em;color:var(--acc2);padding:7px 10px}
+
+/* ---------------------------------------------------------------- ações: Verificar manda, o resto apoia */
+.tablepanel .actions,.benchpanel .actions{align-items:center;gap:8px;padding:12px 14px;background:var(--panel)}
+.tablepanel .actions .btn,.benchpanel .actions .btn{min-height:42px;border-radius:4px;transition:transform .12s var(--ease-out),background-color .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease}
+.tablepanel .actions .btn:active,.benchpanel .actions .btn:active{transform:scale(.97);filter:none}
+#btnCheck,#benchRun{padding:0 26px;font-weight:800;font-size:15px}
+#btnCheck.ready{box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 35%,transparent)}
+#btnHint,#btnReveal{background:var(--panel2)}
+#btnReveal small{font-weight:600}
+#btnExplain{margin-left:auto;background:transparent;border-color:color-mix(in srgb,var(--err) 55%,var(--line));color:var(--err)}
+#btnExplain:disabled{border-color:var(--line);color:var(--muted)}
+
+.feedback{transition:background-color .2s ease}
+.feedback:empty{padding:0;min-height:0}
+.feedback.good,.feedback.bad{margin:0 14px 12px;padding:10px 12px;border-radius:4px;font-size:13.5px;line-height:1.45;font-weight:600}
+.feedback.good{background:color-mix(in srgb,var(--ok) 12%,transparent);border:1px solid color-mix(in srgb,var(--ok) 40%,transparent)}
+.feedback.bad{background:color-mix(in srgb,var(--err) 10%,transparent);border:1px solid color-mix(in srgb,var(--err) 38%,transparent)}
+.hintbox:empty{padding:0}
+.hint{font-size:13.5px;line-height:1.5;padding:10px 12px;border-radius:4px;background:color-mix(in srgb,var(--acc) 7%,var(--panel2))}
+
+/* ---------------------------------------------------------------- simulador: carcaça */
+.simpanel{border-radius:6px;border:1px solid #0b0f14;background:linear-gradient(180deg,var(--pn-hi),var(--pn-lo));
+  box-shadow:0 10px 30px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.6)}
+.mview{border-bottom:0;box-shadow:0 2px 0 #7f8892,0 3px 0 #5d656f}
+.mbar{background:linear-gradient(180deg,#323b47,#252c36);border-bottom:1px solid #0b0f14;padding:6px 8px;gap:6px}
+.mtitle{font:800 11px var(--mono);letter-spacing:.12em;color:var(--crt-yel)}
+.mbtn{background:linear-gradient(180deg,#4a5461,#38414c);border:1px solid #0b0f14;border-bottom-width:2px;border-radius:4px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12);padding:5px 10px;transition:transform .1s var(--ease-out)}
+.mbtn:active{transform:translateY(1px)}
+.crt-tabs{padding:2px;background:#0e151e;border:1px solid #0b0f14;border-radius:4px;gap:2px}
+.crt-tab{border:0;border-radius:3px;background:transparent;color:#9fb0c2;padding:4px 9px}
+.crt-tab.on{background:var(--crt-yel);color:#1a1200}
+.crt-view{background:#161d28}
+.crt-view::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.6),inset 0 0 40px rgba(0,0,0,.35)}
+.vbtns,.crt-hint{z-index:2}
+.crt-alarm{z-index:3;border-left:0;border:1px solid #ff6b6b;border-radius:4px;background:rgba(110,0,0,.92);box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.vbtns .mini{background:rgba(14,21,30,.82);border:1px solid #3a4a5c;border-radius:4px;padding:5px 9px;color:#d5e2ee;
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.vbtns .mini[aria-pressed="true"]{border-color:var(--crt-yel);color:var(--crt-yel)}
+.crt-hint{color:rgba(220,230,240,.5)}
+
+.ctrl{background:transparent;gap:12px;padding:12px;align-items:start}
+
+/* ---------------------------------------------------------------- tela do comando (CRT) */
+.fanuc{background:linear-gradient(180deg,#454b54,#30353c);border-radius:8px;padding:10px 10px 9px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(0,0,0,.4),0 2px 0 #1a1e24,0 4px 10px rgba(0,0,0,.25)}
+.crt{position:relative;background:radial-gradient(120% 90% at 50% 40%,#0c1a2c 0%,var(--crt-bg) 75%);border:3px solid #020407;border-radius:5px;
+  box-shadow:inset 0 0 24px rgba(0,0,0,.7),0 0 0 1px #5a616b;overflow:hidden}
+.crt::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:2px;
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px)}
+.crt-top{background:linear-gradient(180deg,var(--crt-head),var(--crt-head2));padding:5px 10px;font:700 11.5px var(--mono);letter-spacing:.04em;border-bottom:1px solid #06182b}
+.crt-body{padding:8px 12px}
+.crt-axes .ax{color:var(--crt-yel);text-shadow:0 0 8px rgba(255,216,74,.25)}
+.crt-axes .v{white-space:nowrap;color:var(--crt-grn);letter-spacing:.02em;text-shadow:0 0 10px rgba(125,255,160,.28)}
+.crt-axes .lbl,.crt-axes .u{color:var(--crt-dim)}
+.crt-fs b{color:var(--crt-yel)}
+.lamp{border-radius:3px;border-color:#2a3a4c;background:rgba(255,255,255,.02)}
+.lamp i{background:#1b2532;box-shadow:inset 0 1px 1px rgba(0,0,0,.6)}
+.lamp.on i{background:#6dff8b;box-shadow:0 0 6px #6dff8b,0 0 2px #fff inset}
+.proglist .cur{background:var(--crt-yel);color:#1a1200;border-radius:2px}
+.crt-modal{color:#6dff8b;padding:4px 12px;border-top-color:#16273a}
+.crt-stat{background:linear-gradient(180deg,var(--crt-head2),#0b2846);padding:4px 12px;font-variant-numeric:tabular-nums}
+.mdi input{border-radius:3px;background:#0b1828}
+.fkeys{gap:6px;margin-top:9px}
+.fk{background:linear-gradient(180deg,#f2f4f6,#d7dbe0);color:#20262e;border:1px solid #11161c;border-bottom-width:1px;border-radius:4px;
+  box-shadow:0 2px 0 #11161c,inset 0 1px 0 #fff;padding:8px 2px 7px;letter-spacing:.04em;
+  transition:transform .08s ease-out,box-shadow .08s ease-out}
+.fk.on{background:linear-gradient(180deg,#ffe57a,var(--key-on2))}
+.fk:active{transform:translateY(2px);border-bottom-width:1px;box-shadow:0 0 0 #11161c,inset 0 1px 0 #fff}
+
+/* ---------------------------------------------------------------- painel de operação */
+.oppanel{gap:8px}
+.opgroup{background:linear-gradient(180deg,#e9ecef,#dadee3);border:1px solid var(--pn-edge);border-radius:6px;padding:6px 8px 8px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 1px 0 rgba(0,0,0,.08)}
+.oplbl{font:800 9.5px "Segoe UI",system-ui,sans-serif;letter-spacing:.12em;color:var(--pn-ink);margin-bottom:6px;
+  text-shadow:0 1px 0 rgba(255,255,255,.7)}
+.oprow{gap:5px}
+.key{min-width:46px;min-height:36px;justify-content:center;gap:1px;
+  background:linear-gradient(180deg,var(--key-face),var(--key-face2));color:var(--key-ink);
+  border:1px solid var(--key-edge);border-bottom-width:1px;border-radius:4px;
+  box-shadow:0 2px 0 var(--key-edge),inset 0 1px 0 #fff;padding:6px 8px 5px;letter-spacing:.03em;
+  transition:transform .08s ease-out,box-shadow .08s ease-out,background-color .15s ease}
+.key small{font-size:8px;letter-spacing:.06em;color:#6a717c}
+.key:active{transform:translateY(2px);border-bottom-width:1px;box-shadow:0 0 0 var(--key-edge),inset 0 1px 0 #fff;filter:none}
+.key.on,.key[aria-pressed="true"]{background:linear-gradient(180deg,#ffe57a,var(--key-on2));border-color:#7a6410;box-shadow:0 2px 0 #7a6410,inset 0 1px 0 rgba(255,255,255,.6)}
+.key.on small,.key[aria-pressed="true"] small{color:#5a4a08}
+.key.on::after,.key[aria-pressed="true"]::after{top:4px;right:4px;width:6px;height:6px;background:var(--led);box-shadow:0 0 5px var(--led),inset 0 0 1px #fff}
+.key.lit{background:linear-gradient(180deg,#c8f8d6,#93e9ad)}
+.reflamps span{border-radius:3px;background:#8a929c;color:#eef1f4;padding:1px 5px}
+.reflamps span.on{background:var(--led);color:#04210d}
+.ovr{gap:14px;align-items:center}
+.ovr label{font:800 9.5px "Segoe UI",system-ui,sans-serif;letter-spacing:.12em;color:var(--pn-ink);gap:7px}
+.ovr select{min-height:32px;border-radius:4px;padding:3px 6px;background:#262d37;box-shadow:inset 0 1px 2px rgba(0,0,0,.5)}
+
+/* ciclo: os três botões grandes + emergência */
+.oprow.cycle{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:center;gap:7px;padding:2px 0 0}
+.oprow.cycle .opb{justify-content:center;white-space:normal;text-align:center;line-height:1.1}
+.opb{min-height:42px;padding:0 12px;border-radius:5px;border:1px solid #0b0f14;border-bottom-width:1px;letter-spacing:.04em;
+  box-shadow:0 3px 0 #0b0f14,inset 0 1px 0 rgba(255,255,255,.18);
+  transition:transform .08s ease-out,box-shadow .08s ease-out}
+.opb:active{transform:translateY(3px);border-bottom-width:1px;box-shadow:0 0 0 #0b0f14,inset 0 1px 0 rgba(255,255,255,.18);filter:none}
+.opb i{width:11px;height:11px;background:#151b22;box-shadow:inset 0 1px 2px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.12);transition:background-color .15s ease,box-shadow .15s ease}
+.opb.start{background:linear-gradient(180deg,#3a9a53,#246a35)}
+.opb.hold{background:linear-gradient(180deg,#a8861d,#77600f)}
+.opb.reset{background:linear-gradient(180deg,#58616d,#3d444e)}
+.opb.start.lit i{background:#5dff8e;box-shadow:0 0 10px #3cff7a,0 0 0 1px rgba(255,255,255,.4)}
+.opb.hold.lit i{background:#ffe066;box-shadow:0 0 10px #ffd23c,0 0 0 1px rgba(255,255,255,.4)}
+.emg{margin-left:4px;width:58px;height:58px;border:5px solid #f2c21c;
+  background:radial-gradient(circle at 38% 30%,#ff8a8a 0,#e01b1b 38%,#9a0000 75%);
+  box-shadow:0 0 0 2px #6b5608,0 4px 0 #4a0000,0 6px 12px rgba(0,0,0,.35);letter-spacing:.04em;
+  transition:transform .1s ease-out,box-shadow .1s ease-out}
+.emg:active,.emg.on{transform:translateY(3px);box-shadow:0 0 0 2px #6b5608,0 1px 0 #4a0000,0 2px 4px rgba(0,0,0,.3)}
+.emg.on{background:radial-gradient(circle at 38% 30%,#ff9a9a 0,#ff2a2a 40%,#b00000 78%);animation:emgPulse 1.2s ease-in-out infinite}
+@keyframes emgPulse{50%{box-shadow:0 0 0 2px #6b5608,0 1px 0 #4a0000,0 0 18px rgba(255,40,40,.7)}}
+
+@media(pointer:coarse){
+  .key{min-height:44px;min-width:50px}
+  .fk{min-height:44px}
+  .opb{min-height:48px}
+  .mbtn,.crt-tab{min-height:36px}
+  #progTable input{font-size:16px;height:44px}   /* 16px: o iOS não dá zoom ao focar */
+}
+
+/* ---------------------------------------------------------------- desktop / iPad deitado: tela cheia
+   o 3D cresce e encolhe; se a altura não der, só a coluna do simulador rola (o painel nunca é cortado) */
+@media(min-width:900px) and (orientation:landscape){
+  #screen-play .simslot{min-height:0;height:100%;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;border-radius:6px}
+  #screen-play .simslot>#simPanel{display:flex;flex-direction:column;min-height:100%}
+  #screen-play .simslot .mview{flex:1 1 auto;display:flex;flex-direction:column;min-height:240px}
+  #screen-play .simslot .crt-view{flex:1 1 auto;height:auto;min-height:200px}
+  #screen-play .play-grid{gap:14px}
+  .tablepanel .actions{flex:0 0 auto}
+  #screen-play .tablepanel .tablewrap{max-height:none;flex:1 1 auto}
+  /* painel de operação um pouco mais denso, para sobrar altura ao 3D */
+  .opgroup{padding:5px 7px 6px}
+  .oplbl{margin-bottom:4px}
+  .oppanel{gap:6px}
+}
+@media(min-width:900px) and (orientation:landscape) and (pointer:fine){
+  .key{min-height:32px;padding:5px 7px 4px}
+  .opb{min-height:40px}
+}
+
+/* ---------------------------------------------------------------- iPad em pé e celular: abas */
+@media (max-width:899.98px), (max-width:1180px) and (orientation:portrait){
+  .viewtabs{display:flex}
+  .play-grid[data-view="prog"]>.simslot{display:none}
+  .play-grid[data-view="sim"]>.panel{display:none}
+  #screen-play .play-grid,#screen-bench .play-grid{gap:0;grid-template-columns:minmax(0,1fr)}
+  .crt-view{height:min(44vh,460px);height:min(44dvh,460px)}
+  .tablepanel .actions{position:sticky;bottom:0;z-index:5;box-shadow:0 -6px 16px rgba(0,0,0,.18)}
+}
+@media (min-width:700px) and (max-width:1180px) and (orientation:portrait){
+  .ctrl{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+}
+/* bench em tela estreita: o editor e a explicação ficam juntos na aba Editor */
+@media (max-width:899.98px), (max-width:1180px) and (orientation:portrait){
+  #benchCode{height:38vh;height:38dvh}
+}
+
+/* ---------------------------------------------------------------- celular: cada bloco vira um cartão
+   N + descrição em cima, campo de código com a largura toda embaixo — sem rolagem horizontal */
+@media(max-width:600px){
+  .viewtabs{margin-bottom:10px}
+  .crt-view{height:min(64vw,300px)}
+  .tablepanel .panel-bar{padding:9px 12px}
+  #progTable thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  #progTable,#progTable tbody{display:block}
+  #progTable tbody tr[data-r]{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"n say" "code code";
+    column-gap:10px;row-gap:6px;padding:9px 12px;border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+  #progTable tbody tr[data-r] td{border:0;padding:0;background:none}
+  #progTable tbody tr[data-r].cur{background:color-mix(in srgb,var(--acc2) 11%,transparent)}
+  #progTable tbody tr[data-r].run{background:color-mix(in srgb,var(--ok) 16%,transparent)}
+  #progTable tbody tr[data-r].alm{background:color-mix(in srgb,var(--err) 10%,transparent)}
+  #progTable td.n{grid-area:n;width:auto;min-width:38px;line-height:1.4}
+  #progTable td.say{grid-area:say;font-size:13px;line-height:1.4}
+  #progTable td.code{grid-area:code;width:auto}
+  /* linhas prontas: compactas, código ao lado da descrição */
+  #progTable tbody tr.given{grid-template-areas:"n say" ". code";row-gap:0;padding:7px 12px}
+  #progTable tr.given td.code .giv{padding:2px 0 0;font-size:13px}
+  #progTable tr.sep{display:block}
+  #progTable tr.sep td{display:block}
+  .tablepanel .actions{padding:10px 12px;gap:6px}
+  .tablepanel .actions .btn{flex:1 1 auto;padding:0 10px}
+  #btnCheck{flex:1 1 100%!important}
+  #btnExplain{margin-left:0}
+  .ctrl{padding:10px;gap:10px}
+  .crt-axes .v{min-width:0;font-size:21px}
+  .crt-axes .ax{font-size:18px}
+  .mbar{flex-wrap:wrap}
+  .mtitle{flex:1 0 100%;margin:0 0 2px}
+  .mbtn{white-space:nowrap}
+  .crt-tabs{margin-left:auto}
+  .crt-hint{display:none}
+}

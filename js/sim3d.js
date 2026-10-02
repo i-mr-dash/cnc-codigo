@@ -151,15 +151,42 @@ function init(container){
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
   el.appendChild(renderer.domElement);
   scene=new THREE.Scene(); scene.background=new THREE.Color('#1b2330');
+  look();
   camera=new THREE.PerspectiveCamera(38,1,0.5,4000);
-  scene.add(new THREE.HemisphereLight(0xdfe9ff,0x30363f,0.75));
-  const d1=new THREE.DirectionalLight(0xffffff,0.85); d1.position.set(80,140,120); scene.add(d1);
-  const d2=new THREE.DirectionalLight(0x9fc3ff,0.35); d2.position.set(-120,60,-80); scene.add(d2);
+  scene.add(new THREE.HemisphereLight(0xe6eeff,0x2a3038,0.55));
+  const d1=new THREE.DirectionalLight(0xfff6ea,0.95); d1.position.set(80,140,120); scene.add(d1);   /* luz principal, levemente quente */
+  const d2=new THREE.DirectionalLight(0x9fc3ff,0.45); d2.position.set(-120,60,-80); scene.add(d2);  /* contraluz fria: recorta o perfil */
+  const d3=new THREE.DirectionalLight(0xffffff,0.25); d3.position.set(0,-80,140); scene.add(d3);    /* preenchimento por baixo */
   world=new THREE.Group(); scene.add(world);
   bindControls();
   new ResizeObserver(resize).observe(el);
   resize(); loop();
   return true;
+}
+/* aparência: fundo em degradê (cabine da máquina) + ambiente de estúdio para o metal refletir */
+function look(){
+  try{
+    const cv=document.createElement('canvas'); cv.width=4; cv.height=256;
+    const g=cv.getContext('2d'), gr=g.createLinearGradient(0,0,0,256);
+    gr.addColorStop(0,'#2a3546'); gr.addColorStop(0.55,'#1b2330'); gr.addColorStop(1,'#11161e');
+    g.fillStyle=gr; g.fillRect(0,0,4,256);
+    scene.background=new THREE.CanvasTexture(cv);
+    if(THREE.PMREMGenerator){
+      const ec=document.createElement('canvas'); ec.width=256; ec.height=128;
+      const e=ec.getContext('2d'), eg=e.createLinearGradient(0,0,0,128);
+      eg.addColorStop(0,'#c9d6e6'); eg.addColorStop(0.45,'#5a6676'); eg.addColorStop(0.5,'#3a4452'); eg.addColorStop(1,'#14181e');
+      e.fillStyle=eg; e.fillRect(0,0,256,128);
+      e.fillStyle='rgba(255,255,255,.9)'; e.fillRect(40,18,70,14); e.fillRect(150,26,60,10);   /* "softboxes" que viram brilho no aço */
+      const tex=new THREE.CanvasTexture(ec); tex.mapping=THREE.EquirectangularReflectionMapping;
+      const pm=new THREE.PMREMGenerator(renderer);
+      scene.environment=pm.fromEquirectangular(tex).texture; tex.dispose(); pm.dispose();
+    }
+  }catch(e){}
+}
+function floorGrid(y,cx,cz,size){
+  const g=new THREE.GridHelper(size, Math.round(size/10), 0x3a4a60, 0x253041);
+  g.position.set(cx,y,cz); g.material.transparent=true; g.material.opacity=0.55; g.material.depthWrite=false;
+  world.add(g);
 }
 function resize(){ if(!ok) return; const w=el.clientWidth||400, h=el.clientHeight||300; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); dirty=true; }
 function bindControls(){
@@ -194,11 +221,11 @@ function frame(){
 const MAT={};
 function mats(){
   if(MAT.steel) return;
-  MAT.steel=new THREE.MeshStandardMaterial({color:0xb9c2cc, metalness:0.55, roughness:0.32, side:THREE.DoubleSide});
-  MAT.alu=new THREE.MeshStandardMaterial({color:0xd6dde4, metalness:0.35, roughness:0.45, side:THREE.DoubleSide});
-  MAT.cut=new THREE.MeshStandardMaterial({vertexColors:true, metalness:0.5, roughness:0.35, side:THREE.DoubleSide});
-  MAT.dark=new THREE.MeshStandardMaterial({color:0x3a4350, metalness:0.4, roughness:0.6});
-  MAT.jaw=new THREE.MeshStandardMaterial({color:0x5a6472, metalness:0.6, roughness:0.4});
+  MAT.steel=new THREE.MeshStandardMaterial({color:0xc3cbd4, metalness:0.7, roughness:0.28, envMapIntensity:0.9, side:THREE.DoubleSide});
+  MAT.alu=new THREE.MeshStandardMaterial({color:0xd2d9e0, metalness:0.5, roughness:0.5, envMapIntensity:0.55, side:THREE.DoubleSide});
+  MAT.cut=new THREE.MeshStandardMaterial({vertexColors:true, metalness:0.6, roughness:0.42, envMapIntensity:0.55, side:THREE.DoubleSide});
+  MAT.dark=new THREE.MeshStandardMaterial({color:0x434d5a, metalness:0.45, roughness:0.55, envMapIntensity:0.6});
+  MAT.jaw=new THREE.MeshStandardMaterial({color:0x6a7482, metalness:0.7, roughness:0.35});
   MAT.hold=new THREE.MeshStandardMaterial({color:0xffb020, metalness:0.3, roughness:0.45});
   MAT.ins=new THREE.MeshStandardMaterial({color:0x22262c, metalness:0.7, roughness:0.3});
   MAT.gold=new THREE.MeshStandardMaterial({color:0xd9b44a, metalness:0.8, roughness:0.25});
@@ -222,9 +249,11 @@ function buildScene(){
     coolant=new THREE.Mesh(new THREE.CylinderGeometry(0.8,1.6,26,10), MAT.cool); coolant.position.set(9,13,8); coolant.rotation.x=-0.3; coolant.rotation.z=0.5;
     const cl=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-M.L-40,0,0),new THREE.Vector3(40,0,0)]),
       new THREE.LineDashedMaterial({color:0x8ea0b8,dashSize:3,gapSize:2})); cl.computeLineDistances(); world.add(cl);
+    floorGrid(-(R+30), -M.L/2, 0, Math.max(200, Math.ceil((M.L+120)/20)*20));
   }else{
     const table=new THREE.Mesh(new THREE.BoxGeometry(M.w+80, 8, M.h+80), MAT.dark);
     table.position.set(M.x0+M.w/2, -M.T-4, -(M.y0+M.h/2)); world.add(table);
+    floorGrid(-M.T-8.2, M.x0+M.w/2, -(M.y0+M.h/2), Math.max(200, Math.ceil((Math.max(M.w,M.h)+160)/20)*20));
     coolant=new THREE.Mesh(new THREE.CylinderGeometry(0.8,1.5,40,10), MAT.cool); coolant.position.set(16,20,0); coolant.rotation.z=0.45;
   }
   coolant.visible=false; toolGroup.add(coolant);

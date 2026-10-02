@@ -284,6 +284,22 @@ const MACH = { mode:'MEM', ref:{torno:{X:false,Z:false}, fresa:{X:false,Y:false,
   spin:5, cool:false, tool:null, pos:null, page:'POS', emg:false, runRow:-1, almList:[] };
 let has3D=false;
 function mountSim(sel){ const slot=$(sel); if(slot && $('#simPanel').parentNode!==slot) slot.appendChild($('#simPanel')); requestAnimationFrame(()=>draw2d()); }
+/* abas Programa / Máquina: só aparecem em tela estreita (iPad em pé, celular) — ver css/design-play.css */
+function setView(scr, v){
+  const sc=typeof scr==='string'?$(scr):scr, g=sc&&sc.querySelector('.play-grid'); if(!g||g.dataset.view===v) return;
+  g.dataset.view=v;
+  sc.querySelectorAll('.vt').forEach(b=>{ const on=b.dataset.view===v; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
+  if(v==='sim') requestAnimationFrame(()=>{ CC=null; draw2d(); });
+}
+$$('.viewtabs .vt').forEach(b=>b.addEventListener('click',()=>setView(b.closest('.screen'), b.dataset.view)));
+$('#benchRun').addEventListener('click',()=>setView('#screen-bench','sim'));
+(function vtLed(){   /* luz na aba Máquina: verde rodando, vermelha com alarme */
+  const upd=()=>{ const run=$('#opStart').classList.contains('lit'), alm=!!$('#crtAlm').textContent.trim();
+    $$('.vt-led').forEach(i=>{ i.classList.toggle('run',run&&!alm); i.classList.toggle('alm',alm); }); };
+  const mo=new MutationObserver(upd);
+  mo.observe($('#opStart'),{attributes:true,attributeFilter:['class']});
+  mo.observe($('#crtAlm'),{childList:true,characterData:true,subtree:true});
+})();
 const refOf = () => MACH.ref[SIM.machine];
 const allRef = () => Object.values(refOf()).every(Boolean);
 
@@ -779,6 +795,7 @@ function startLevel(lv){
   SIM.focus=-1;
   buildTable(lv);
   syncExplainBtn();
+  setView('#screen-play','prog');
   show('play');
   SIM.rowText = r => { const row=P.lv.rows[r]; return row ? (row.given?row.code:(valOf(r)||'')) : ''; };
   SIM.rowN = r => (P.lv.rows[r]&&P.lv.rows[r].n)||'';
@@ -1344,6 +1361,7 @@ function startTutorial(){
 function tutReflow(){ requestAnimationFrame(()=>tutPlace(tutTarget)); }
 function tutShow(){
   const s=TUT[tstep], el=$(s.sel); if(!el){ endTutorial(); return; }
+  setView('#screen-play', el.closest('#simPanel')?'sim':'prog');
   tutTarget=el; tutFails=0;
   $('#tutStep').textContent=`PASSO ${tstep+1}/${TUT.length}`; $('#tutText').innerHTML=s.txt; $('#tutErr').textContent='';
   $('#tutGive').style.display='none'; $('#tutBack').disabled=tstep===0;
