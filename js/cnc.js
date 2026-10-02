@@ -79,7 +79,7 @@ function newState(machine){
   return { machine, x:null, y:0, z:null, home:true, mot:0, abs:true, unit:21,
     fmode: machine==='torno'?95:94, F:null, S:null, css:false, smax:null,
     spin:5, cool:false, tool:'', comp:40, plane:17, wcs:54, cyc:null, cycData:null,
-    polar:false, shift:{x:0,y:0}, hlen:false, ended:false, stop:'', dwell:0, prog:'',
+    polar:false, shift:{x:0,y:0}, hlen:false, hidx:null, didx:null, ended:false, stop:'', dwell:0, prog:'',
     pend:{} };
 }
 const cloneSt = s => JSON.parse(JSON.stringify(s));
@@ -99,7 +99,7 @@ function simulate(lines, machine){
 
   const pos = () => ({x:st.x, y:st.y, z:st.z});
   let _fill=null; function pushFill(f){ _fill=f; }
-  function push(kind, pts, row){ if(_fill && pts.length>1){ pts._fill=_fill; }  if(pts.length>1) segs.push({kind, pts, row, tool:st.tool, comp:st.comp, plane:st.plane, spin:st.spin, fill:_fill||undefined}); _fill=null; }
+  function push(kind, pts, row){ if(_fill && pts.length>1){ pts._fill=_fill; }  if(pts.length>1) segs.push({kind, pts, row, tool:st.tool, comp:st.comp, plane:st.plane, spin:st.spin, wcs:st.wcs, hlen:st.hlen, hidx:st.hidx, didx:st.didx, fill:_fill||undefined}); _fill=null; }
 
   /* ,R / ,C (Fanuc): arredonda/chanfra o canto entre o bloco que tem a vírgula e o próximo G1 */
   let cornerPend=null;
@@ -198,7 +198,7 @@ function simulate(lines, machine){
   /* passes de desbaste: cs = perfil A→B (sem o bloco P, que só leva do ponto de partida até A) */
   function lathePasses(kind, g, cs, row){
     const pts=polyOf(cs); if(pts.length<2) return;
-    const sx=st.x, sz=st.z, base={row, tool:st.tool, spin:st.spin, comp:40};
+    const sx=st.x, sz=st.z, base={row, tool:st.tool, spin:st.spin, comp:40, wcs:st.wcs};
     if(kind===71){
       const step=g.U1||1; let minR=Infinity; pts.forEach(p=>minR=Math.min(minR,p.x/2));
       for(let r=sx/2-step; r>minR+1e-6; r-=step){
@@ -268,7 +268,8 @@ function simulate(lines, machine){
     if('F' in o && !(T && oneShot===76)) st.F=o.F;
     if('S' in o){ if(setMax) st.smax=o.S; else st.S=o.S; }
     if('T' in o) st.tool = T ? String(Math.round(o.T)).padStart(4,'0') : String(Math.round(o.T)).padStart(2,'0');
-    if(!T && 'H' in o && Math.round(o.H)===0) st.hlen=false;
+    if(!T && 'H' in o){ if(Math.round(o.H)===0) st.hlen=false; else if(g.G.includes(43)) st.hidx=Math.round(o.H); }
+    if(!T && 'D' in o) st.didx=Math.round(o.D);
     for(const M of g.M){
       if(M===3||M===4||M===5) st.spin=M;
       else if(M===13){ st.spin=3; st.cool=true; } else if(M===14){ st.spin=4; st.cool=true; }
@@ -373,7 +374,7 @@ function simulate(lines, machine){
       if(st.x!==null && st.z!==null && !st.home){
         const rowP=lines[byN[Math.round(o.P)]].row;
         lathePasses(G, st.pend[G]||{}, c.segs.filter(s=>s.row!==rowP), row);
-        c.segs.forEach(s=>{ s.row=row; s.kind=s.kind==='rapid'?'rapid':'feed'; s.cyc=true; s.tool=st.tool; segs.push(s); });
+        c.segs.forEach(s=>{ s.row=row; s.kind=s.kind==='rapid'?'rapid':'feed'; s.cyc=true; s.tool=st.tool; s.wcs=st.wcs; segs.push(s); });
       }
       return;
     }
@@ -381,7 +382,7 @@ function simulate(lines, machine){
       const c=contour(Math.round(o.P), Math.round(o.Q));
       if(!c){ errs.push({row, msg:`Não achei os blocos N${Math.round(o.P)} a N${Math.round(o.Q)} do perfil.`}); return; }
       if(st.x!==null && st.z!==null && !st.home)
-        c.segs.forEach(s=>{ s.row=row; s.kind=s.kind==='rapid'?'rapid':'finish'; s.tool=st.tool; s.comp=st.comp; segs.push(s); });
+        c.segs.forEach(s=>{ s.row=row; s.kind=s.kind==='rapid'?'rapid':'finish'; s.tool=st.tool; s.comp=st.comp; s.wcs=st.wcs; segs.push(s); });
       return;
     }
     if(st.x===null || st.z===null || st.home){ if(G===74||G===75||G===76){ st.pend[G]=o; } return; }

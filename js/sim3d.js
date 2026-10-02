@@ -22,7 +22,8 @@ let dirty=true;
 const LATHE_KIND = {desb:'turn', acab:'turn', rosca:'turn', bedame:'groove', broca:'drill', centro:'drill', interno:'bore'};
 function toolOf(code){ return code ? getTool(code) : null; }
 function latheKindOf(t){ return t ? (LATHE_KIND[t.type]||'turn') : 'turn'; }
-const MEAS_ERR = 25;     // corretor não medido: a ferramenta "acha" que está 25 mm mais longe
+/* ligação com o painel (zero-peça + corretores): o painel diz o quanto a ferramenta REAL está deslocada da posição comandada */
+let shiftFn=()=>null, compFn=()=>null, homeFn=null, carved=0, shiftAlarmed={}, toolPhys=null, ideal=false;   // ideal = prévia sem erro de zero-peça
 
 /* ---------------- material: torno ---------------- */
 const DZ=0.25;
@@ -38,17 +39,17 @@ function carveLathe(x, z, kind, t){
   if(kind==='drill'){
     const dr=(t&&t.d?t.d:4)/2;
     const [i0,i1]=cellRange(z, M.z0+5);
-    for(let k=i0;k<=i1;k++) if(M.rOut[k]>0 && M.rIn[k]<dr) M.rIn[k]=Math.min(dr, M.rOut[k]);
+    for(let k=i0;k<=i1;k++) if(M.rOut[k]>0 && M.rIn[k]<dr){ M.rIn[k]=Math.min(dr, M.rOut[k]); carved++; }
     return;
   }
   if(kind==='bore'){
     const [i0,i1]=cellRange(z, z+1);
-    for(let k=i0;k<=i1;k++) if(r>M.rIn[k] && M.rIn[k]>0) M.rIn[k]=Math.min(r, M.rOut[k]);
+    for(let k=i0;k<=i1;k++) if(r>M.rIn[k] && M.rIn[k]>0){ M.rIn[k]=Math.min(r, M.rOut[k]); carved++; }
     return;
   }
   const w = kind==='groove' ? (t&&t.w?t.w:3) : 1.0;
   const [i0,i1] = kind==='groove' ? cellRange(z-w, z) : cellRange(z, z+w);
-  for(let k=i0;k<=i1;k++) if(M.rOut[k]>r){ M.rOut[k]=r; if(M.rIn[k]>r) M.rIn[k]=r; }
+  for(let k=i0;k<=i1;k++) if(M.rOut[k]>r){ M.rOut[k]=r; if(M.rIn[k]>r) M.rIn[k]=r; carved++; }
 }
 function latheInside(x,z,kind,t){
   if(kind==='groove'){ const w=(t&&t.w)||3; return latheInside1(x,z-0.3) || latheInside1(x,z-w+0.3); }
@@ -76,7 +77,7 @@ function carveMill(x,y,z,rad){
   const r2=rad*rad, zz=Math.max(z,-M.T);
   for(let j=j0;j<=j1;j++) for(let i=i0;i<=i1;i++){
     const px=M.x0+i*M.cx-x, py=M.y0+j*M.cy-y;
-    if(px*px+py*py<=r2){ const k=j*M.nx+i; if(M.hgt[k]>zz) M.hgt[k]=zz; }
+    if(px*px+py*py<=r2){ const k=j*M.nx+i; if(M.hgt[k]>zz){ M.hgt[k]=zz; carved++; } }
   }
 }
 function millInside(x,y,z,rad){
@@ -108,32 +109,42 @@ function alarm(row,msg){ if(!alarms.some(a=>a.row===row&&a.msg===msg)) alarms.pu
 function applyPoint(seg, p0, prev){
   const t=toolOf(seg.tool);
   if(seg.tool && !t){   // sem ferramenta não corta — e o recuo em G0 de um furo "não feito" não é colisão
-    if(seg.kind!=='rapid') alarm(seg.row, `FERRAMENTA T${String(seg.tool).slice(0,2)} NÃO ESTÁ MONTADA (veja FERRAMENTAS)`); return; }
-  const p={...p0};
-  if(t && t.measured===false){ p.z=(p.z??0)+MEAS_ERR; alarm(seg.row, `T${String(seg.tool).slice(0,2)} SEM CORRETOR MEDIDO — trabalha ${MEAS_ERR} mm fora do lugar (meça em FERRAMENTAS / OFS)`); }
+    if(seg.kind!=='rapid') alarm(seg.row, `FERRAMENTA T${String(seg.tool).slice(0,2)} NÃO ESTÁ MONTADA (veja FERRAMENTAS)`); return null; }
+  const sh = (seg.phys||ideal) ? null : shiftFn(seg);
+  const dx=sh?sh.x:0, dy=sh?sh.y:0, dz=sh?sh.z:0;
+  if(sh && seg.row>=0 && seg.kind!=='rapid' && !shiftAlarmed[seg.tool] && (Math.abs(dx)>0.3||Math.abs(dy)>0.3||Math.abs(dz)>0.3)){
+    shiftAlarmed[seg.tool]=1;
+    const f=v=>(Math.round(v*10)/10).toString();
+    alarm(seg.row, machine==='torno'
+      ? `T${seg.tool} FORA DO LUGAR: ΔX ${f(dx)} · ΔZ ${f(dz)} mm — zero-peça/corretor não conferem com a ferramenta (meça em OFFSET)`
+      : `T${seg.tool} FORA DO LUGAR: ΔX ${f(dx)} · ΔY ${f(dy)} · ΔZ ${f(dz)} mm — zero-peça (G54)/corretor H não conferem (meça em OFFSET)`); }
+  const p={x:p0.x+dx, y:(p0.y||0)+dy, z:p0.z+dz};
   if(machine==='torno'){
     let kind = seg.kind==='rapid' ? 'rapid' : seg.kind==='drill' ? 'drill' : seg.kind==='groove' ? 'groove' : latheKindOf(t);
     const tk=latheKindOf(t);
     // o 1º ponto do G0 é onde a ferramenta já está (fim do corte anterior): não conta como colisão
-    if(kind==='rapid'){ if(!seg.safe && prev && latheInside(p.x,p.z,tk,t)) alarm(seg.row,'COLISÃO: AVANÇO RÁPIDO (G0) DENTRO DO MATERIAL'); return; }
+    if(kind==='rapid'){ if(!seg.safe && prev && latheInside(p.x,p.z,tk,t)) alarm(seg.row,'COLISÃO: AVANÇO RÁPIDO (G0) DENTRO DO MATERIAL'); return p; }
     if(kind==='turn' && tk!=='turn') kind=tk;                 // broca/bedame chamados em G1 comum
     if(kind==='groove' && tk==='drill') kind='drill';
     if(latheInside(p.x,p.z,kind,t) && seg.spin===5) alarm(seg.row,'CORTE COM O FUSO PARADO (faltou M3)');
     carveLathe(p.x, p.z, kind, t);
-  }else{
-    const rad=millRad(t,seg);
-    let x=p.x, y=p.y;
-    if((seg.comp===41||seg.comp===42) && (seg.plane||17)===17 && seg.kind!=='drill' && seg.kind!=='rapid'){
-      // 1º ponto do bloco: usa a direção do próprio bloco (senão a fresa ficaria centrada no canto e morderia a peça)
-      const q=prev||seg.pts[0], r=prev?p0:(seg.pts[1]||p0);
-      const dx=r.x-q.x, dy=r.y-q.y, d=Math.hypot(dx,dy);
-      if(d>1e-6){ const s=seg.comp===41?1:-1; x+=-dy/d*rad*s; y+=dx/d*rad*s; }
-    }
-    p0._x=x; p0._y=y;
-    if(seg.kind==='rapid'){ if(millInside(x,y,p.z,rad*0.8)) alarm(seg.row,'COLISÃO: AVANÇO RÁPIDO (G0) DENTRO DO MATERIAL'); return; }
-    if((seg.fill ? p.z<0 : millInside(x,y,p.z,rad*0.8)) && seg.spin===5) alarm(seg.row,'CORTE COM O FUSO PARADO (faltou M3)');
-    if(!seg.fill) carveMill(x,y,p.z,rad);          // bolsa (G71/G72/G12/G13): o fillMill já tirou o material na medida
+    return p;
   }
+  const rad=millRad(t,seg);
+  let x=p.x, y=p.y;
+  if((seg.comp===41||seg.comp===42) && (seg.plane||17)===17 && seg.kind!=='drill' && seg.kind!=='rapid'){
+    const cr = ideal ? null : compFn(seg); const cRad = cr==null ? rad : cr;   // raio gravado no corretor D (pode estar errado/zerado); na prévia ideal usa o raio real
+    if(cr===0 && seg.row>=0 && !shiftAlarmed['D'+seg.didx]){ shiftAlarmed['D'+seg.didx]=1; alarm(seg.row, `COMPENSAÇÃO COM D${seg.didx==null?'':String(seg.didx).padStart(2,'0')} ZERADO: grave o raio da fresa no corretor (OFFSET → D)`); }
+    // 1º ponto do bloco: usa a direção do próprio bloco (senão a fresa ficaria centrada no canto e morderia a peça)
+    const q=prev||seg.pts[0], r=prev?p0:(seg.pts[1]||p0);
+    const ddx=r.x-q.x, ddy=r.y-q.y, d=Math.hypot(ddx,ddy);
+    if(d>1e-6){ const sg=seg.comp===41?1:-1; x+=-ddy/d*cRad*sg; y+=ddx/d*cRad*sg; }
+  }
+  const ph={x,y,z:p.z};
+  if(seg.kind==='rapid'){ if(millInside(x,y,p.z,rad*0.8)) alarm(seg.row,'COLISÃO: AVANÇO RÁPIDO (G0) DENTRO DO MATERIAL'); return ph; }
+  if((seg.fill ? p.z<0 : millInside(x,y,p.z,rad*0.8)) && seg.spin===5) alarm(seg.row,'CORTE COM O FUSO PARADO (faltou M3)');
+  if(!seg.fill) carveMill(x,y,p.z,rad);          // bolsa (G71/G72/G12/G13): o fillMill já tirou o material na medida
+  return ph;
 }
 function samples(seg, step){
   const out=[], P=seg.pts;
@@ -458,22 +469,57 @@ function buildPath(){
 
 /* ---------------- ferramenta na tela ---------------- */
 let toolPos=null, curTool=null;
-function homePos(){ return machine==='torno' ? {x:M.D+16, z:15} : {x:M.x0+M.w/2, y:M.y0+M.h/2, z:100}; }
-function placeTool(p, code){
+function homePos(code){ if(homeFn){ const h=homeFn(code); if(h) return h; } return machine==='torno' ? {x:100, z:45} : {x:M.x0+M.w/2, y:M.y0+M.h/2, z:100}; }
+/* q = posição FÍSICA da ponta (ou null = posição de referência da máquina) */
+function placePhys(q, code){
   if(!ok) return;
-  toolPos=p;
-  if(code!==undefined){ curTool=code; setToolModel(toolOf(code)); }
-  const q = p && p.x!=null && p.z!=null ? p : homePos();
-  if(machine==='torno') toolGroup.position.set(q.z, q.x/2, 0);
-  else toolGroup.position.set(q._x??q.x, Math.min(q.z??100,150), -((q._y??q.y)||0));
+  toolPhys=q;
+  if(code!==undefined && code!==curTool){ curTool=code; setToolModel(toolOf(code)); }
+  const h = q || homePos(curTool);
+  if(machine==='torno') toolGroup.position.set(h.z, h.x/2, 0);
+  else toolGroup.position.set(h.x, Math.min(h.z,400), -(h.y||0));
   dirty=true;
+}
+/* p = posição COMANDADA (a do programa); o desvio de zero-peça/corretor é aplicado aqui */
+function placeTool(p, code){
+  toolPos=p;
+  if(!p){ placePhys(null, code); return; }
+  const sh=shiftFn({tool:code!==undefined?code:curTool, row:-1, hlen:false})||{x:0,y:0,z:0};
+  placePhys({x:p.x+sh.x, y:(p.y||0)+sh.y, z:p.z+sh.z}, code);
+}
+function setToolCode(code){ if(!ok) return; curTool=code; setToolModel(toolOf(code)); placePhys(toolPhys, code); }
+
+/* medições: folga entre a ponta e a peça (calibrador) e diâmetro torneado (paquímetro) */
+function gaps(q, code){
+  if(!M||!q) return null;
+  const t=toolOf(code), res={x:null,y:null,z:null};
+  if(machine==='torno'){
+    const r=q.x/2, z=q.z, iF=Math.min(M.n-1,Math.max(0,zIdx(M.z0-0.01)));
+    if(r < M.rOut[iF]+0.01 && r >= M.rIn[iF]) res.z = z-M.z0;                       // folga até a face
+    const i=zIdx(z); if(i>=0 && i<M.n && z<=M.z0) res.x = q.x-2*M.rOut[i];           // folga no diâmetro
+    return res;
+  }
+  const rad=millRad(t,null);
+  const inX=(q.x>=M.x0-rad && q.x<=M.x0+M.w+rad), inY=(q.y>=M.y0-rad && q.y<=M.y0+M.h+rad);
+  if(q.x>=M.x0 && q.x<=M.x0+M.w && q.y>=M.y0 && q.y<=M.y0+M.h){
+    const i=Math.round((q.x-M.x0)/M.cx), j=Math.round((q.y-M.y0)/M.cy);
+    res.z = q.z - M.hgt[Math.min(M.ny-1,Math.max(0,j))*M.nx+Math.min(M.nx-1,Math.max(0,i))];
+  }
+  if(q.z<0 && inY){ const l=M.x0-(q.x+rad), r2=(q.x-rad)-(M.x0+M.w); res.x = Math.abs(l)<Math.abs(r2)?l:r2; }
+  if(q.z<0 && inX){ const b=M.y0-(q.y+rad), t2=(q.y-rad)-(M.y0+M.h); res.y = Math.abs(b)<Math.abs(t2)?b:t2; }
+  return res;
+}
+function diameterAt(z){        // menor diâmetro na janela que a ferramenta acabou de tocar (z … z+1,2 mm)
+  if(!M||machine!=='torno'||z>M.z0) return null;
+  const [i0,i1]=cellRange(z-0.1, Math.min(z+1.2, M.z0)); if(i1<i0) return null;
+  let r=Infinity; for(let k=i0;k<=i1;k++) r=Math.min(r,M.rOut[k]); return isFinite(r)?2*r:null;
 }
 
 /* ---------------- carregar / resultado final ---------------- */
-function fresh(){ M = machine==='torno' ? latheModel(part) : millModel(part); }
+function fresh(){ M = machine==='torno' ? latheModel(part) : millModel(part); carved=0; shiftAlarmed={}; }
 function load(o){
   machine=o.machine; part=o.part; res=o.res; rowState=res?res.states:{}; order=(res&&res.order)||[];
-  getTool=o.getTool||(()=>null);
+  getTool=o.getTool||(()=>null); shiftFn=o.shift||(()=>null); compFn=o.comp||(()=>null); homeFn=o.home||null;
   anim=null; fresh();
   if(!ok) return;
   const key=machine+'|'+JSON.stringify(part&&part.stock)+'|'+(part&&part.face)+'|'+(part&&part.thick);
@@ -483,18 +529,18 @@ function load(o){
 function computeFinal(){
   alarms=[]; fresh();
   if(!res) return [];
-  let last=null, lastSeg=null;
+  let lastPh=null, lastSeg=null;
   for(const s of res.segs){
     if(s.fill && machine!=='torno') fillMill(s.fill);
     let prev=null;
-    for(const p of samples(s, machine==='torno'?0.2:0.5)){ applyPoint(s,p,prev); prev=p; last=p; }
+    for(const p of samples(s, machine==='torno'?0.2:0.5)){ const ph=applyPoint(s,p,prev); prev=p; if(ph) lastPh=ph; }
     lastSeg=s;
   }
-  if(ok){ rebuildPart(); placeTool(last, lastSeg?lastSeg.tool:undefined); }
+  if(ok){ rebuildPart(); placePhys(lastPh, lastSeg?lastSeg.tool:undefined); }
   return alarms.slice();
 }
-function showFinal(){ anim=null; const a=computeFinal(); setSpin(null); return a; }
-function resetStock(){ anim=null; alarms=[]; fresh(); if(ok){ rebuildPart(); placeTool(null); } }
+function showFinal(){ anim=null; ideal=true; const a=computeFinal(); ideal=false; setSpin(null); return a; }
+function resetStock(){ anim=null; alarms=[]; fresh(); if(ok){ rebuildPart(); placePhys(null); } }
 
 /* ---------------- CYCLE START ---------------- */
 function play(){
@@ -525,8 +571,8 @@ function stepAnim(dt){
     if(!a.started){
       a.started=true;
       a.wait = blk.segs.length ? 0 : (st.dwell ? Math.min(st.dwell,4) : 0.22);
-      setSpin(st); if(st.tool!==curTool) placeTool(toolPos, st.tool);
-      onTick({row:blk.row, pos:toolPos, state:st});
+      setSpin(st); if(st.tool!==curTool) placePhys(toolPhys, st.tool);
+      onTick({row:blk.row, pos:toolPos, phys:toolPhys, state:st});
     }
     if(!blk.segs.length){
       const use=Math.min(budget,a.wait); a.wait-=use; budget-=use;
@@ -540,23 +586,23 @@ function stepAnim(dt){
     for(let k=0;k<n && a.pi<sg.pts.length;k++){
       const p=sg.pts[a.pi++];
       if(sg.s.fill && a.pi===1 && machine!=='torno') fillMill(sg.s.fill);
-      applyPoint(sg.s, p, a.prev); a.prev=p;
-      placeTool(p, sg.s.tool); rebuilt=true;
+      const ph=applyPoint(sg.s, p, a.prev); a.prev=p; toolPos=p;
+      if(ph) placePhys(ph, sg.s.tool); rebuilt=true;
     }
     budget -= n*step/v;
-    if(a.pi>=sg.pts.length){ a.pi=0; a.si++; a.prev=null; if(a.si>=blk.segs.length){ endBlock(a, blk); if(a.hold){ onTick({row:blk.row,pos:toolPos,state:st}); break; } } }
-    onTick({row:blk.row, pos:toolPos, state:st});
+    if(a.pi>=sg.pts.length){ a.pi=0; a.si++; a.prev=null; if(a.si>=blk.segs.length){ endBlock(a, blk); if(a.hold){ onTick({row:blk.row,pos:toolPos,phys:toolPhys,state:st}); break; } } }
+    onTick({row:blk.row, pos:toolPos, phys:toolPhys, state:st});
   }
   if(rebuilt) rebuildPart();
   if(a.bi>=a.tl.length){ anim=null; setSpin(null); onDone(alarms.slice()); }
 }
 
 /* ---------------- operação manual (JOG / MDI / REF) ---------------- */
-function manualMove(from, to, o){
-  const seg={kind:o.rapid?'rapid':'feed', pts:[from,to], row:-1, tool:o.tool, spin:o.spin, comp:40};
+function manualMove(from, to, o){          // from/to = posição FÍSICA da ponta (JOG / INC / MANIVELA / MDI)
+  const seg={kind:o.rapid?'rapid':'feed', pts:[from,to], row:-1, tool:o.tool, spin:o.spin, comp:40, phys:true};
   const before=alarms.length;
   let prev=null; for(const p of samples(seg, machine==='torno'?0.2:0.5)){ applyPoint(seg,p,prev); prev=p; }
-  if(ok){ rebuildPart(); placeTool(to, o.tool); }
+  if(ok){ rebuildPart(); placePhys(to, o.tool); }
   return alarms.slice(before);
 }
 let spinState=null;
@@ -580,9 +626,9 @@ function snapshot(){ try{ placeCamera(); renderer.render(scene,camera); return r
 
 function setYawPitch(y,pt){ cam.yaw=+y; cam.pitch=+pt; dirty=true; }
 function focusTool(dist){ if(!ok||!toolGroup) return; const p=toolGroup.position; cam.tx=p.x; cam.ty=p.y; cam.tz=p.z; cam.dist=dist||70; cam.yaw=0.9; cam.pitch=0.35; dirty=true; }
-return { init, load, showFinal, focusTool, setYawPitch, resetStock, play, hold, stop, running, active, setOpts, manualMove, placeTool, setSpin, snapshot,
+return { init, load, showFinal, focusTool, setYawPitch, resetStock, play, hold, stop, running, active, setOpts, manualMove, placeTool, placePhys, setToolCode, gaps, diameterAt, setSpin, snapshot,
   setPathVisible:v=>{ showPath=v; buildPath(); dirty=true; }, resetView:()=>{ frame(); dirty=true; },
-  homePos:()=>M?homePos():null, getAlarms:()=>alarms.slice(),
+  homePos:c=>M?homePos(c):null, getAlarms:()=>alarms.slice(), carved:()=>carved,
   set onTick(f){ onTick=f; }, set onDone(f){ onDone=f; }, set onStop(f){ onStop=f; },
-  get ok(){ return ok; }, get model(){ return M; }, get toolPos(){ return toolPos; } };
+  get ok(){ return ok; }, get model(){ return M; }, get toolPos(){ return toolPos; }, get toolPhys(){ return toolPhys; } };
 })();

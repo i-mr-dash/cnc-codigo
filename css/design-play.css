@@ -278,26 +278,3 @@
   .crt-tabs{margin-left:auto}
   .crt-hint{display:none}
 }
-
-/* ---------- Desktop: layout do SwanSoft — 3D e tela do comando lado a lado, painel de operação em faixa embaixo ----------
-   (empilhado, o painel não cabia em telas de ~750 px de altura útil: Windows com zoom 125 %) */
-@media(min-width:1100px) and (orientation:landscape){
-  #simPanel{display:grid!important;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);grid-template-rows:minmax(0,1fr) auto;
-    background:linear-gradient(#cdd2d8,#b9bfc7)}
-  #simPanel .mview{grid-column:1;grid-row:1;display:flex;flex-direction:column;min-height:0;border-bottom:0;border-right:3px solid #8a929c}
-  #simPanel .crt-view{flex:1 1 auto;height:auto;min-height:200px}
-  #simPanel .ctrl{display:contents}
-  #simPanel .fanuc{grid-column:2;grid-row:1;margin:8px 8px 0;display:flex;flex-direction:column;min-height:0}
-  #simPanel .crt{flex:1 1 auto;min-height:0}
-  #simPanel .crt-body{min-height:0;overflow:auto}
-  #simPanel .oppanel{grid-column:1/-1;grid-row:2;flex-direction:row;flex-wrap:wrap;align-items:stretch;padding:8px;gap:6px}
-  #simPanel .oppanel>*{flex:1 1 auto}
-  #simPanel .oprow.cycle{align-items:center}
-  #screen-play .simslot>#simPanel{height:100%}
-  #screen-bench #simPanel .crt-view{flex:none;height:min(52vh,460px)}
-}
-@media(min-width:1100px) and (orientation:landscape){
-  #simPanel .oppanel>.opgroup.ovr{flex:0 1 auto;display:flex;align-items:center}
-  #simPanel .oppanel>.oprow.cycle{flex:1 1 380px}
-  #screen-play .play-grid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
-}

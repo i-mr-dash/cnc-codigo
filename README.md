@@ -10,18 +10,21 @@ de torno da escola (O7044 / O7046).
 Duplo clique em `servidor.bat` e abra **http://localhost:8124**.
 O 3D usa a biblioteca three.js, que já vem na pasta `js/vendor` — funciona offline.
 
-## Simulador (estilo SwanSoft / Fanuc 0i)
+## Simulador (estilo SSCNC / Fanuc 0i)
 
-- **Máquina 3D**: a peça é usinada de verdade pelo seu código (torno: sólido de revolução; fresa: bloco).
-- **Peça bruta**: diâmetro / comprimento / sobremetal (torno) ou bloco X-Y-espessura (fresa), aço ou alumínio.
-- **Ferramentas**: torre de 8 posições (desbaste, acabamento, bedame, broca, broca de centro, rosca, barra interna)
-  ou magazine de 12 (fresa de topo, esférica, cabeçote, broca, macho, escareador, alargador).
-  Corretor **não medido** = a ferramenta trabalha 25 mm fora do lugar (o problema real da broca/bedame no O7046).
-- **Tela do comando**: POS, PROG, OFS/SET, MESSAGE; linha modal; F, S, T; luzes de fuso/refrigeração/compensação.
-- **Painel**: modos EDIT · MEM · MDI · JOG · REF, referência de eixos (X→Z no torno, Z→X/Y na fresa), JOG ±/RAPID,
-  fuso CW/STOP/CCW, COOL, SBK, DRN, OPT STOP (M1), BDT (/), override de avanço e rápido, CYCLE START, FEED HOLD, RESET, EMERGÊNCIA.
-- **Alarmes**: G0 dentro do material (colisão), corte com fuso parado, ferramenta não montada, eixos não referenciados,
-  arco impossível, perfil P/Q inexistente.
+O painel segue o procedimento do SSCNC (SwanSoft), o simulador da escola:
+
+- **Tela do comando** com softkeys e **teclado MDI** de verdade (buffer de entrada, SHIFT, CAN, INPUT, ALTER, INSERT, DELETE, cursor, PAGE, HELP).
+  Páginas **POS** (ABS/REL/ALL), **PROG**, **OFFSET/SETTING** (WEAR, GEOM, SETTING, WORK, (OPRT) → NO.SRH, **MEASURE**, +INPUT, INPUT), **SYSTEM**, **MESSAGE**, **GRAPH**.
+- **Modos** EDIT · MEM · MDI · JOG · INC (×1 ×10 ×100 ×1000) · HNDL (manivela) · REF. Teclas de direção −X +X −Z +Z (fresa: Y também), RAPID, fuso CW/STOP/CCW, COOL, torre ▶,
+  SBK, DRN, BDT, OPT.STOP, overrides de avanço/rápido/JOG/fuso, CYCLE START, FEED HOLD, RESET, EMERGÊNCIA.
+- **Referência**: modo REF + teclas **+** de cada eixo. Sem referência o CYCLE START dá **ALM 224**.
+- **Zero-peça e ferramentas medidos de verdade**: a ferramenta real só fica no lugar certo se o aluno medir (corte de teste + paquímetro no torno; calibrador de 1 mm e `X-6` na fresa)
+  e gravar com **MEASURE** (ou digitar com INPUT). Zerado/errado → o 3D mostra a ferramenta fora do lugar (**FORA DO LUGAR**, **NADA FOI USINADO**).
+  Atalho para quem tem pressa: **Ferramentas → Preparar máquina**.
+- **3D** com remoção de material, ferramentas realistas (pastilhas CNMG/VNMG, brocas 118°, bedame, rosca, fresas, macho…), **calibrador** (APROPRIADO / APERTADO / FROUXO) e **paquímetro**.
+- **Peça bruta** (Ø, comprimento, sobremetal, material, calibrador) e **Ferramentas** (torre de 8 / magazine de 12).
+- Alarmes: G0 dentro do material, corte com fuso parado, ferramenta não montada, colisão com a placa/mesa, fim de curso, arco impossível, perfil P/Q inexistente.
 - **Simulador livre** (desbloqueia na fase 4): cole qualquer programa — cada linha é explicada.
 
 ## Trilhas
@@ -39,8 +42,10 @@ bolsas G71/G72/G12/G13 → tradutor Mach 9/Siemens → CHEFE: placa completa.
 - `js/codes.js` — dicionário de códigos G/M/endereços, tabelas do Manual
 - `js/cnc.js` — parser, simulador do programa (ciclos G70–G76, G81–G86, M98, polar…) e corretor de blocos
 - `js/levels.js` — fases + gerador do Modo Infinito
-- `js/sim3d.js` — simulador 3D (three.js) com remoção de material
-- `js/game.js` — interface, painel Fanuc, progressão, dicas, tutorial, loja, manual
+- `js/sim3d.js` — simulador 3D (three.js) com remoção de material e ferramentas
+- `js/panel.js` — painel SSCNC: tela do comando, teclado MDI, modos, REF/JOG/INC/HNDL, MEASURE, física de zero-peça/corretores
+- `js/game.js` — interface do jogo, progressão, dicas, tutorial, loja, manual
+- `js/main.js` — inicialização
 - `css/style.css` (temas, herdado do CNC Coordenadas) e `css/code.css`
 
 Progresso salvo no navegador (`localStorage`, chave `cnccodigo_v1`); backup em Manual → Exportar save.

@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="css/code.css?v=1">
 <link rel="stylesheet" href="css/design-shell.css?v=1">
 <link rel="stylesheet" href="css/design-play.css?v=1">
+<link rel="stylesheet" href="css/sscnc.css?v=1">
 </head>
 <body data-theme="steel">
 <a href="#app" class="skip">Pular para o conteúdo</a>
@@ -156,13 +157,13 @@
   </section>
 </main>
 
-<!-- ============ SIMULADOR (estilo SwanSoft / Fanuc 0i) — movido entre a fase e o simulador livre ============ -->
-<div class="simpanel" id="simPanel">
+<!-- ============ SIMULADOR (estilo SSCNC / Fanuc 0i) — movido entre a fase e o simulador livre ============ -->
+<div class="simpanel ss" id="simPanel">
   <div class="mview">
     <div class="mbar">
-      <span class="mtitle" id="mTitle">TORNO CNC · FANUC 0i-TC</span>
-      <button class="mbtn" id="btnStock" title="Dimensões da peça bruta">Peça bruta</button>
-      <button class="mbtn" id="btnTools" title="Montar ferramentas na torre / magazine">Ferramentas</button>
+      <span class="mtitle" id="mTitle">TORNO · FANUC 0i</span>
+      <button class="mbtn" id="btnStock" title="Dimensões da peça bruta, material e calibrador">Peça bruta</button>
+      <button class="mbtn" id="btnTools" title="Montar ferramentas na torre / magazine e preparar a máquina">Ferramentas</button>
       <span class="crt-tabs" role="tablist">
         <button class="crt-tab on" id="tab3d" role="tab" aria-selected="true">3D</button>
         <button class="crt-tab" id="tab2d" role="tab" aria-selected="false">DESENHO</button>
@@ -173,74 +174,78 @@
       <canvas id="cv" role="img" aria-label="Desenho técnico da peça"></canvas>
       <div class="crt-nosim" id="noSim">Esta fase não tem simulação: é tradução entre comandos.</div>
       <div class="crt-alarm" id="crtAlarm" role="alert"></div>
-      <div class="vbtns"><button class="mini" id="opPath" aria-pressed="true" title="Mostrar o percurso">Percurso</button><button class="mini" id="opView" title="Centralizar a vista">Centralizar</button></div>
+      <div class="gap" id="gapBadge" hidden></div>
+      <div class="vbtns"><button class="mini" id="opPath" aria-pressed="true" title="Mostrar o percurso">Percurso</button><button class="mini" id="opView" title="Centralizar a vista">Centralizar</button><button class="mini" id="btnCaliper" title="Medir o diâmetro torneado / a altura sob a ferramenta">Paquímetro</button></div>
       <div class="crt-hint">arraste: girar · roda/pinça: zoom · shift+arraste: mover</div>
     </div>
   </div>
 
-  <div class="ctrl">
-    <div class="fanuc">
-      <div class="crt">
-        <div class="crt-top"><span id="crtPage">POSIÇÃO ABSOLUTA</span><span id="crtProg">O0000 N0000</span></div>
-        <div class="crt-body">
-          <div class="pg" id="pgPOS">
-            <div class="crt-axes" id="crtAxes"></div>
-            <div class="crt-side"><div class="crt-fs" id="crtFS"></div><div class="crt-lamps" id="crtLamps"></div></div>
-          </div>
-          <div class="pg" id="pgPROG"><div class="proglist" id="progList"></div></div>
-          <div class="pg" id="pgOFS"><div class="ofslist" id="ofsList"></div></div>
-          <div class="pg" id="pgMSG"><div class="msglist" id="msgList"></div></div>
-          <div class="mdi" id="mdiBox"><span>MDI&gt;</span><input id="mdiIn" spellcheck="false" autocomplete="off" autocapitalize="characters" placeholder="ex.: T0101  ·  M3 S500  ·  G0 X50. Z5."></div>
-        </div>
-        <div class="crt-modal" id="crtModal">G00 G97 G21 G40 G54 G90</div>
-        <div class="crt-stat"><span id="crtMode">MEM</span><span id="crtRun">****</span><span id="crtAlm"></span><span id="crtClock">00:00:00</span></div>
-      </div>
-      <div class="fkeys">
-        <button class="fk on" data-pg="POS">POS</button><button class="fk" data-pg="PROG">PROG</button>
-        <button class="fk" data-pg="OFS">OFS/SET</button><button class="fk" data-pg="MSG">MESSAGE</button>
-      </div>
+  <div class="ss-unit">
+    <div class="ss-crt">
+      <div class="ss-top"><span id="crtPage">POSIÇÃO</span><span id="crtProg">O0000 N0000</span></div>
+      <div class="ss-body" id="crtBody"></div>
+      <div class="crt-modal" id="crtModal">G00 G97 G21 G40 G54 G90</div>
+      <label class="ss-buf"><span>&gt;</span><input id="kbBuf" spellcheck="false" autocomplete="off" autocapitalize="characters" aria-label="Linha de entrada do comando (buffer)" placeholder="digite aqui ou use o teclado MDI"><i aria-hidden="true">_</i></label>
+      <div class="ss-status"><span id="crtMode">MEM</span><span id="crtRun">****</span><span id="crtAlm"></span><span id="crtClock">00:00:00</span></div>
     </div>
+    <div class="ss-softkeys" id="softkeys"></div>
+  </div>
 
-    <div class="oppanel" id="opPanel">
-      <div class="opgroup">
-        <div class="oplbl">MODO</div>
-        <div class="oprow modes">
-          <button class="key" data-mode="EDIT">EDIT</button><button class="key" data-mode="MEM">MEM<small>AUTO</small></button>
-          <button class="key" data-mode="MDI">MDI</button><button class="key" data-mode="JOG">JOG</button>
-          <button class="key" data-mode="REF">REF<small>ZRN</small></button>
-        </div>
+  <div class="ss-kbd" id="kbd" aria-label="Teclado MDI"></div>
+
+  <div class="ss-mach" id="opPanel">
+    <section class="ss-grp ss-modes" aria-label="Seletor de modo">
+      <h4>MODO</h4>
+      <div class="ss-row">
+        <button class="ssk" data-mode="EDIT" aria-pressed="false">EDIT</button><button class="ssk" data-mode="MEM" aria-pressed="true">MEM<small>AUTO</small></button>
+        <button class="ssk" data-mode="MDI" aria-pressed="false">MDI</button><button class="ssk" data-mode="JOG" aria-pressed="false">JOG</button>
+        <button class="ssk" data-mode="INC" aria-pressed="false">INC<small>PASSO</small></button><button class="ssk" data-mode="HND" aria-pressed="false">HNDL<small>MANIVELA</small></button>
+        <button class="ssk" data-mode="REF" aria-pressed="false">REF<small>ZRN</small></button>
       </div>
-      <div class="opgroup">
-        <div class="oplbl">EIXOS <span class="reflamps" id="refLamps"></span></div>
-        <div class="oprow axes" id="axisKeys"></div>
+    </section>
+    <section class="ss-grp ss-axes" aria-label="Eixos">
+      <h4>EIXOS <span class="reflamps" id="refLamps"></span></h4>
+      <div class="ss-row" id="axisKeys"></div>
+      <div class="ss-row ss-incrow" id="incRow">
+        <button class="ssk" data-inc="0">×1</button><button class="ssk on" data-inc="1">×10</button><button class="ssk" data-inc="2">×100</button><button class="ssk" data-inc="3">×1000</button>
+        <span class="ss-hsel" id="hAxis"></span>
+        <button class="ssk" id="hMinus" aria-label="Um pulso negativo">◁</button>
+        <div class="hand" id="handDial" role="slider" aria-label="Manivela eletrônica: arraste ou use a roda do mouse" style="--rot:0deg"><i></i></div>
+        <button class="ssk" id="hPlus" aria-label="Um pulso positivo">▷</button>
       </div>
-      <div class="opgroup">
-        <div class="oplbl">FUSO · REFRIGERAÇÃO</div>
-        <div class="oprow">
-          <button class="key" id="kCW" title="Fuso horário (JOG)">↻ CW</button><button class="key" id="kStop" title="Parar fuso (JOG)">■ STOP</button>
-          <button class="key" id="kCCW" title="Fuso anti-horário (JOG)">↺ CCW</button><button class="key" id="kCool" title="Refrigeração (JOG)">💧 COOL</button>
-        </div>
+    </section>
+    <section class="ss-grp" aria-label="Fuso e refrigeração">
+      <h4>FUSO · REFRIG. · TORRE</h4>
+      <div class="ss-row">
+        <button class="ssk" id="kCW" title="Fuso horário (manual)">↻ CW</button><button class="ssk" id="kStop" title="Parar o fuso">■ STOP</button><button class="ssk" id="kCCW" title="Fuso anti-horário (manual)">↺ CCW</button>
+        <button class="ssk" id="kCool" title="Refrigeração">COOL</button><button class="ssk" id="kTurret" title="Gira a torre para a próxima ferramenta (torno)">TORRE ▶</button>
       </div>
-      <div class="opgroup">
-        <div class="oplbl">OPÇÕES</div>
-        <div class="oprow">
-          <button class="key tg" id="kSBK" aria-pressed="false" title="Single block: um bloco por CYCLE START">SBK</button>
-          <button class="key tg" id="kDRN" aria-pressed="false" title="Dry run: avanços rápidos">DRN</button>
-          <button class="key tg" id="kOPT" aria-pressed="false" title="Optional stop: para no M1">OPT STOP</button>
-          <button class="key tg" id="kBDT" aria-pressed="false" title="Block delete: pula blocos com /">BDT</button>
-        </div>
+    </section>
+    <section class="ss-grp" aria-label="Opções do ciclo">
+      <h4>OPÇÕES</h4>
+      <div class="ss-row">
+        <button class="ssk" id="kSBK" aria-pressed="false" title="Single block: um bloco por CYCLE START">SBK</button>
+        <button class="ssk" id="kDRN" aria-pressed="false" title="Dry run: avanços rápidos">DRN</button>
+        <button class="ssk" id="kBDT" aria-pressed="false" title="Block delete: ignora blocos que começam com /">BDT</button>
+        <button class="ssk" id="kOPT" aria-pressed="false" title="Optional stop: para no M1">OPT.STOP</button>
       </div>
-      <div class="opgroup ovr">
-        <label>AVANÇO <select id="ovFeed"><option value="0.25">25%</option><option value="0.5">50%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="3">300%</option></select></label>
-        <label>RÁPIDO <select id="ovRapid"><option value="0.25">F0</option><option value="0.25">25%</option><option value="0.5">50%</option><option value="1" selected>100%</option></select></label>
+    </section>
+    <section class="ss-grp ss-ovr" aria-label="Overrides">
+      <h4>OVERRIDE</h4>
+      <div class="ss-row">
+        <div class="stp" id="ovFeed"><span>AVANÇO</span><button data-d="-1" aria-label="Menos">−</button><output>100%</output><button data-d="1" aria-label="Mais">+</button></div>
+        <div class="stp" id="ovRapid"><span>RÁPIDO</span><button data-d="-1" aria-label="Menos">−</button><output>100%</output><button data-d="1" aria-label="Mais">+</button></div>
+        <div class="stp" id="ovJog"><span>JOG</span><button data-d="-1" aria-label="Menos">−</button><output>20%</output><button data-d="1" aria-label="Mais">+</button></div>
+        <div class="stp" id="ovSpin"><span>FUSO</span><button data-d="-1" aria-label="Menos">−</button><output>100%</output><button data-d="1" aria-label="Mais">+</button></div>
+        <span id="ovRapidV" data-v="1" hidden></span>
       </div>
-      <div class="oprow cycle">
-        <button class="opb start" id="opStart" title="CYCLE START"><i></i>CYCLE START</button>
-        <button class="opb hold" id="opHold" title="FEED HOLD"><i></i>FEED HOLD</button>
-        <button class="opb reset" id="opReset" title="RESET"><i></i>RESET</button>
-        <button class="emg" id="opEmg" title="Parada de emergência">EMERG.</button>
-      </div>
-    </div>
+    </section>
+    <section class="ss-cycle" aria-label="Ciclo">
+      <button class="opb start" id="opStart" title="CYCLE START"><i></i>CYCLE START</button>
+      <button class="opb hold" id="opHold" title="FEED HOLD"><i></i>FEED HOLD</button>
+      <button class="opb reset" id="opReset" title="RESET"><i></i>RESET</button>
+      <button class="emg" id="opEmg" title="Parada de emergência">EMERG.</button>
+    </section>
   </div>
 </div>
 
@@ -250,7 +255,7 @@
   <div class="explain-body"><table class="tooltab" id="toolTable"></table></div>
   <div class="modal-actions">
     <button class="btn ghost" id="toolsDefault">Montar as da fase</button>
-    <button class="btn ghost" id="toolsMeasure">Medir todas (zerar corretores)</button>
+    <button class="btn ghost" id="toolsMeasure" title="Referencia os eixos, grava o zero-peça e mede todos os corretores de uma vez">Preparar máquina (atalho)</button>
     <button class="btn primary" id="toolsOk">Aplicar</button>
   </div>
 </div>
@@ -325,6 +330,8 @@
 <script src="js/cnc.js?v=1"></script>
 <script src="js/levels.js?v=1"></script>
 <script src="js/sim3d.js?v=1"></script>
-<script src="js/game.js?v=1"></script>
+<script src="js/game.js?v=2"></script>
+<script src="js/panel.js?v=2"></script>
+<script src="js/main.js?v=2"></script>
 </body>
 </html>
