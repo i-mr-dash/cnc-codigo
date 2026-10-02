@@ -3,8 +3,8 @@
 
 /* ---------- grade da fase ---------- */
 #screen-play .play-grid{grid-template-columns:1.1fr 1fr}
-@media(max-width:1050px){ #screen-play .play-grid, #screen-bench .play-grid{grid-template-columns:1fr} }
 #screen-bench .play-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;align-items:start}
+@media(max-width:1050px){ #screen-play .play-grid, #screen-bench .play-grid{grid-template-columns:1fr} }
 .simslot{min-width:0}
 .chipbtn{cursor:pointer;color:var(--acc);border-color:var(--acc);background:transparent;font:inherit;font-size:12px}
 
@@ -131,7 +131,7 @@
 .stockform .note{grid-column:1/-1;color:var(--muted);font-size:12.5px}
 
 /* ---------- tabela do programa ---------- */
-.tablewrap{max-height:62vh}
+:where(.tablewrap){max-height:62vh}   /* especificidade zero: as regras de layout do style.css/design-play.css vencem */
 #progTable{width:100%;border-collapse:collapse;font-size:13.5px}
 #progTable th{background:var(--panel2);padding:7px 8px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--line);text-align:left;position:sticky;top:0;z-index:2}
 #progTable td{border-bottom:1px solid var(--line);padding:4px 8px;vertical-align:middle}
