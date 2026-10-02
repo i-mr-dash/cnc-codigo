@@ -9,7 +9,7 @@
 const Sim3D = (()=>{
 let ok=false, el=null, renderer, scene, camera;
 let machine='torno', part=null, res=null, rowState={}, order=[];
-let world, partGroup, partMesh=null, toolGroup, toolModel=null, coolant, spinAngle=0;
+let world, partGroup, partMesh=null, toolGroup, toolModel=null, spinAngle=0;
 let M=null;
 let anim=null, onTick=()=>{}, onDone=()=>{}, onStop=()=>{};
 let alarms=[];
@@ -256,9 +256,91 @@ function mats(){
   MAT.flute=new THREE.MeshStandardMaterial({color:0x23272d, metalness:0.5, roughness:0.45});
 }
 function clearGroup(g){ while(g.children.length){ const o=g.children.pop(); o.traverse(x=>{ if(x.geometry) x.geometry.dispose(); }); } }
+
+/* ---------------- efeitos: refrigerante (jato de partículas), cavacos, faíscas e torre giratória ---------------- */
+let fxCool=null, fxChip=null, drum=null, drumAng=0, drumTarget=0, coolOn=false, lastCarved=0;
+const FXN={cool:420, chip:260};
+function makeFx(color, size, n, blend){
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n*3).fill(9999),3));
+  g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n*3),3));
+  const pts=new THREE.Points(g, new THREE.PointsMaterial({size:size, vertexColors:true, transparent:true, opacity:0.95, depthWrite:false, blending:blend?THREE.AdditiveBlending:THREE.NormalBlending, sizeAttenuation:true}));
+  pts.frustumCulled=false; pts.userData={n:n, vel:new Float32Array(n*3), life:new Float32Array(n), col:color, head:0};
+  return pts;
+}
+function emit(fx, o, v, life, col){
+  const u=fx.userData, i=u.head=(u.head+1)%u.n, p=fx.geometry.attributes.position.array, c=fx.geometry.attributes.color.array;
+  p[i*3]=o.x; p[i*3+1]=o.y; p[i*3+2]=o.z; u.vel[i*3]=v.x; u.vel[i*3+1]=v.y; u.vel[i*3+2]=v.z; u.life[i]=life;
+  const cc=col||u.col; c[i*3]=cc[0]; c[i*3+1]=cc[1]; c[i*3+2]=cc[2];
+}
+function stepFx(fx, dt, grav, drag){
+  const u=fx.userData, p=fx.geometry.attributes.position.array; let alive=false;
+  for(let i=0;i<u.n;i++){
+    if(u.life[i]<=0) continue;
+    alive=true; u.life[i]-=dt;
+    if(u.life[i]<=0){ p[i*3]=p[i*3+1]=p[i*3+2]=9999; continue; }
+    u.vel[i*3+1]-=grav*dt; const dk=Math.max(0,1-drag*dt); u.vel[i*3]*=dk; u.vel[i*3+1]*=dk; u.vel[i*3+2]*=dk;
+    p[i*3]+=u.vel[i*3]*dt; p[i*3+1]+=u.vel[i*3+1]*dt; p[i*3+2]+=u.vel[i*3+2]*dt;
+  }
+  fx.geometry.attributes.position.needsUpdate=true; fx.geometry.attributes.color.needsUpdate=true;
+  return alive;
+}
+function buildFx(){
+  fxCool=makeFx([0.35,0.8,1],1.7,FXN.cool,true); fxChip=makeFx([1,0.6,0.2],1.5,FXN.chip,false);
+  world.add(fxCool); world.add(fxChip);
+}
+function nozzlePos(){
+  const p=toolGroup.position;
+  return machine==='torno' ? {x:p.x+34, y:p.y+34, z:p.z+22} : {x:p.x+22, y:p.y+46, z:p.z+14};
+}
+function tickFx(dt, cutting){
+  if(!fxCool) return false;
+  const p=toolGroup.position, tip={x:p.x,y:p.y,z:p.z};
+  if(coolOn){
+    const n=nozzlePos(), want=Math.round(dt*260);
+    for(let k=0;k<want;k++){
+      const dx=tip.x-n.x, dy=tip.y-n.y, dz=tip.z-n.z, L=Math.hypot(dx,dy,dz)||1, sp=60+Math.random()*10;
+      emit(fxCool, n, {x:dx/L*sp+(Math.random()-.5)*5, y:dy/L*sp+14+(Math.random()-.5)*5, z:dz/L*sp+(Math.random()-.5)*5}, 0.5+Math.random()*0.25);
+    }
+  }
+  if(cutting){
+    const n=Math.min(10,Math.round(dt*160));
+    for(let k=0;k<n;k++){
+      const hot=Math.random()<0.35, a=Math.random()*6.283, sp=18+Math.random()*30;
+      emit(fxChip, tip, {x:Math.cos(a)*sp*0.6+(machine==='torno'?-14:0), y:12+Math.random()*28, z:Math.sin(a)*sp},
+           hot?0.35:0.7, hot?[1,0.85,0.35]:[0.62,0.64,0.68]);
+    }
+  }
+  const a=stepFx(fxCool,dt,70,0.4), b=stepFx(fxChip,dt,150,0.6);
+  return a||b;
+}
+function buildDrum(){
+  const R=56, N=8, g=new THREE.Group(), body=new THREE.Group(); g.add(body);
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(R-8,R-8,46,N*2), MAT.dark); disc.rotation.z=Math.PI/2; body.add(disc);
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(22,22,56,24), MAT.jaw); hub.rotation.z=Math.PI/2; body.add(hub);
+  for(let i=0;i<N;i++){
+    const a=i*2*Math.PI/N, c=Math.cos(a), sn=Math.sin(a);
+    const lug=new THREE.Mesh(new THREE.BoxGeometry(46,16,34), MAT.body); lug.position.set(0,-(R-2)*c,(R-2)*sn); lug.rotation.x=a; body.add(lug);
+    if(i>0){
+      const stub=new THREE.Mesh(new THREE.BoxGeometry(20,36,20), MAT.body); stub.position.set(0,-(R+16)*c,(R+16)*sn); stub.rotation.x=a; body.add(stub);
+      const band=new THREE.Mesh(new THREE.BoxGeometry(20.4,5,20.4), MAT.hold); band.position.set(0,-(R+30)*c,(R+30)*sn); band.rotation.x=a; body.add(band);
+    }
+    const cv=document.createElement('canvas'); cv.width=cv.height=64; const x=cv.getContext('2d');
+    x.fillStyle='#10161f'; x.fillRect(0,0,64,64); x.fillStyle='#ffd24a'; x.font='bold 44px sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(String(i+1),32,36);
+    const lab=new THREE.Mesh(new THREE.PlaneGeometry(14,14), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv)}));
+    lab.position.set(24,-(R-12)*c,(R-12)*sn); lab.rotation.set(0,Math.PI/2,0); lab.rotateOnWorldAxis(new THREE.Vector3(1,0,0),a); body.add(lab);
+  }
+  g.userData.body=body; return g;
+}
+function slotOf(code){ if(!code) return 1; return code>=100?Math.floor(code/100):code; }
+function setDrumSlot(code, snap){
+  const n=((slotOf(code)-1)%8+8)%8; let t=-n*2*Math.PI/8; const cur=drumTarget;
+  while(t-cur>Math.PI) t-=2*Math.PI; while(cur-t>Math.PI) t+=2*Math.PI;
+  drumTarget=t; if(snap) drumAng=t;
+}
+
 let sceneKey='';
 function buildScene(){
-  mats(); clearGroup(world);
+  mats(); clearGroup(world); fxCool=fxChip=drum=null;
   partGroup=new THREE.Group(); world.add(partGroup);
   toolGroup=new THREE.Group(); world.add(toolGroup); toolModel=null; curModelKey='';
   if(machine==='torno'){
@@ -267,7 +349,6 @@ function buildScene(){
     for(let k=0;k<3;k++){ const j=new THREE.Mesh(new THREE.BoxGeometry(14,10,12), MAT.jaw); const a=k*2*Math.PI/3;
       j.position.set(-M.L+7, Math.cos(a)*(R+5), Math.sin(a)*(R+5)); j.rotation.x=a; chuck.add(j); }
     partGroup.add(chuck);
-    coolant=new THREE.Mesh(new THREE.CylinderGeometry(0.8,1.6,26,10), MAT.cool); coolant.position.set(9,13,8); coolant.rotation.x=-0.3; coolant.rotation.z=0.5;
     const cl=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-M.L-40,0,0),new THREE.Vector3(40,0,0)]),
       new THREE.LineDashedMaterial({color:0x8ea0b8,dashSize:3,gapSize:2})); cl.computeLineDistances(); world.add(cl);
     floorGrid(-(R+30), -M.L/2, 0, Math.max(200, Math.ceil((M.L+120)/20)*20));
@@ -275,9 +356,9 @@ function buildScene(){
     const table=new THREE.Mesh(new THREE.BoxGeometry(M.w+80, 8, M.h+80), MAT.dark);
     table.position.set(M.x0+M.w/2, -M.T-4, -(M.y0+M.h/2)); world.add(table);
     floorGrid(-M.T-8.2, M.x0+M.w/2, -(M.y0+M.h/2), Math.max(200, Math.ceil((Math.max(M.w,M.h)+160)/20)*20));
-    coolant=new THREE.Mesh(new THREE.CylinderGeometry(0.8,1.5,40,10), MAT.cool); coolant.position.set(16,20,0); coolant.rotation.z=0.45;
   }
-  coolant.visible=false; toolGroup.add(coolant);
+  buildFx();
+  if(machine==='torno'){ drum=buildDrum(); drum.position.set(18,148,-12); toolGroup.add(drum); setDrumSlot(curTool,true); drum.userData.body.rotation.x=drumAng; }
   rebuildPart();
 }
 /* modelos 3D das ferramentas (ponta da ferramenta na origem do grupo)
@@ -474,7 +555,7 @@ function homePos(code){ if(homeFn){ const h=homeFn(code); if(h) return h; } retu
 function placePhys(q, code){
   if(!ok) return;
   toolPhys=q;
-  if(code!==undefined && code!==curTool){ curTool=code; setToolModel(toolOf(code)); }
+  if(code!==undefined && code!==curTool){ curTool=code; setToolModel(toolOf(code)); setDrumSlot(code); }
   const h = q || homePos(curTool);
   if(machine==='torno') toolGroup.position.set(h.z, h.x/2, 0);
   else toolGroup.position.set(h.x, Math.min(h.z,400), -(h.y||0));
@@ -487,7 +568,7 @@ function placeTool(p, code){
   const sh=shiftFn({tool:code!==undefined?code:curTool, row:-1, hlen:false})||{x:0,y:0,z:0};
   placePhys({x:p.x+sh.x, y:(p.y||0)+sh.y, z:p.z+sh.z}, code);
 }
-function setToolCode(code){ if(!ok) return; curTool=code; setToolModel(toolOf(code)); placePhys(toolPhys, code); }
+function setToolCode(code){ if(!ok) return; curTool=code; setToolModel(toolOf(code)); setDrumSlot(code); placePhys(toolPhys, code); }
 
 /* medições: folga entre a ponta e a peça (calibrador) e diâmetro torneado (paquímetro) */
 function gaps(q, code){
@@ -603,10 +684,11 @@ function manualMove(from, to, o){          // from/to = posição FÍSICA da pon
   const before=alarms.length;
   let prev=null; for(const p of samples(seg, machine==='torno'?0.2:0.5)){ applyPoint(seg,p,prev); prev=p; }
   if(ok){ rebuildPart(); placePhys(to, o.tool); }
+  if(carved>lastCarved) manualCut=0.25;
   return alarms.slice(before);
 }
-let spinState=null;
-function setSpin(st){ spinState=st; if(coolant) coolant.visible=!!(st&&st.cool); dirty=true; }
+let spinState=null, manualCut=0;
+function setSpin(st){ spinState=st; coolOn=!!(st&&st.cool); dirty=true; }
 
 function loop(){
   requestAnimationFrame(loop);
@@ -618,7 +700,10 @@ function loop(){
     if(machine==='torno') partGroup.rotation.x=spinAngle; else if(toolModel) toolModel.rotation.y=spinAngle;
     dirty=true;
   }
-  if(coolant && coolant.visible){ coolant.material.opacity=0.4+0.25*Math.sin(now/60); dirty=true; }
+  if(drum){ const d=drumTarget-drumAng; if(Math.abs(d)>1e-3){ drumAng+=d*Math.min(1,dt*6); drum.userData.body.rotation.x=drumAng; dirty=true; } }
+  const cutting = !!anim && !anim.hold && carved>lastCarved; lastCarved=carved;
+  if(tickFx(dt, cutting||manualCut>0) || coolOn) dirty=true;
+  if(manualCut>0) manualCut-=dt;
   if(!dirty || el.offsetParent===null) return;
   placeCamera(); renderer.render(scene,camera); dirty=false;
 }
