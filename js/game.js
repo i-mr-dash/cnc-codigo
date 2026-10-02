@@ -61,6 +61,7 @@ function load(){
   ['unlocked','owned'].forEach(k=>{ if(!Array.isArray(s[k])) s[k]=[]; });
   if(!THEMES.some(t=>t.t===s.theme)) s.theme='steel';
   s.machine = s.machine==='fresa'?'fresa':'torno';
+  if(s.bench && (typeof s.bench!=='object' || !s.bench.stock || !s.bench.tools)) s.bench=null;
   return s;
 }
 function save(){
@@ -888,6 +889,10 @@ function diagnoseRow(row, typed, c, m){
   if(m==='multi'){
     const d=CNC.diagnose(row, typed, c, 'fresa');
     if(d.code==='naoexiste') return {code:'geral', msg:'Esse código não é o usado por esse comando. Confira a tabela Fanuc × Siemens × Mach 9 no Manual.'};
+    // o dicionário é o da fresa Fanuc: G71 e o F/D do G4 têm outro sentido no Siemens/Mach 9
+    const eg=CNC.group(CNC.parse(row.code).words).G;
+    if(d.code!=='formato' && d.code!=='vazio' && eg.includes(71)) return {code:'troca', msg:'No Siemens e no Mach 9, <b>milímetros</b> é <b>G71</b> (o G21 é do Fanuc — e no Fanuc o G71 é outra coisa).'};
+    if(!['formato','vazio','tempo'].includes(d.code) && eg.includes(4)) return {code:'troca', msg:'A pausa muda de letra em cada comando: Fanuc <b>G4 X</b> (segundos) ou <b>P</b> (milésimos), Siemens <b>G4 F</b> (segundos), Mach 9 <b>G4 D</b> (segundos). Veja qual comando o bloco pede.'};
     return d;
   }
   return CNC.diagnose(row, typed, c, m);   // (absoluto × incremental é tratado no CNC.diagnose)
@@ -895,7 +900,7 @@ function diagnoseRow(row, typed, c, m){
 const TYPE_LBL={vazio:'bloco em branco', formato:'erro de digitação', naoexiste:'código que não existe', troca:'código trocado pelo vizinho do grupo',
   sinal:'sinal trocado', raio:'raio no lugar do diâmetro', dobro:'diâmetro dobrado', falta:'faltou uma palavra', sobra:'palavra sobrando',
   virgula:'faltou a vírgula do ,R / ,C', micron:'unidade em mícrons', feed:'avanço na unidade errada', tool:'T com 2 dígitos no torno', valor:'número diferente do pedido', geral:'sintaxe', dup:'letra repetida',
-  incr:'absoluto × incremental (X/Z × U/W)', g28:'G28 com X/Z em vez de U0/W0'};
+  incr:'absoluto × incremental (X/Z × U/W)', g28:'G28 com X/Z em vez de U0/W0', tempo:'tempo em segundos × milésimos'};
 const cellsOf = () => $$('#progTable input');
 const firstBad = () => { for(const el of cellsOf()){ const i=rowInfo(+el.dataset.r); if(!i.ok) return i; } return null; };
 
@@ -932,7 +937,7 @@ function syncExplainBtn(){
 $('#btnHint').onclick=()=>{
   const c=firstBad();
   if(!c){ toast('Nada errado — clique em Verificar!'); return; }
-  const key=c.r, tier=HINT_TIER[key]||0, row=c.row, m=P.lv.machine;
+  const key=c.r, tier=HINT_TIER[key]||0, row=c.row, m=P.lv.ctrl==='multi'?'multi':P.lv.machine;
   let txt, custa=true, titulo='Dica';
   if(tier===0){ custa=false; titulo=`${row.n||'Bloco'} — o que está errado`; txt=diag(c).msg; }
   else if(tier===1){
@@ -965,7 +970,7 @@ $('#btnReveal').onclick=()=>{
 $('#btnExplain').onclick=()=>{
   if($('#btnExplain').dataset.locked){
     toast(`O passo a passo abre depois de 3 tentativas. Enquanto isso: <b>Dica</b> (1º nível grátis) ou <b>Aula</b>.`,4200); return; }
-  const m=P.lv.machine;
+  const m=P.lv.ctrl==='multi'?'multi':P.lv.machine;
   $('#explainBody').innerHTML=P.lv.rows.map((r,i)=>r.given?'':
     `<div class="exrow"><b>${esc(r.n||'')}</b> — ${esc(r.say)}<br><code style="font-size:15px;color:var(--acc)">${esc(r.code)}</code>${r.alt&&r.alt.length?` <small style="color:var(--muted)">(também vale: ${r.alt.map(esc).join(' · ')})</small>`:''}<br>${r.raw?'':CNC.explainBlock(r.code,m).join(' · ')}</div>`).join('');
   openModal('#modalExplain');
@@ -1201,9 +1206,9 @@ function renderHelp(){
     <button class="btn sm" id="btnTutorial">Rever o tutorial</button></div></div>`;
   $('#btnExport').onclick=()=>{ const b=new Blob([JSON.stringify(S)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='cnc-codigo-save.json'; a.click(); };
   $('#btnImport').onclick=()=>{ const i=document.createElement('input'); i.type='file'; i.accept='.json,application/json';
-    i.onchange=()=>{ const f=i.files[0]; if(!f) return; f.text().then(t=>{ try{ localStorage.setItem(KEY, JSON.stringify(JSON.parse(t))); S=load(); LEVELS=levelsFor(S.machine); hud(); toast('Save importado.'); }catch(e){ toast('Arquivo inválido.'); } }); };
+    i.onchange=()=>{ const f=i.files[0]; if(!f) return; f.text().then(t=>{ try{ const o=JSON.parse(t); if(!o||typeof o!=='object'||Array.isArray(o)||!('xp' in o||'stars' in o)) throw 0; localStorage.setItem(KEY, JSON.stringify(o)); S=load(); LEVELS=levelsFor(S.machine); hud(); $('#logoMark').classList.toggle('dev-on',S.dev); toast('Save importado.'); }catch(e){ toast('Arquivo inválido.'); } }); };
     i.click(); };
-  $('#btnTutorial').onclick=()=>{ S.tutorial=false; save(); switchMachine('torno'); startLevel(LEVELS_TORNO[0]); };
+  $('#btnTutorial').onclick=()=>{ S.tutorial=false; save(); startLevel(LEVELS[0]); };   // fase 1 da trilha atual (torno ou fresa)
 }
 
 /* =========================================================================
@@ -1342,20 +1347,26 @@ $('#benchCode').addEventListener('input',()=>{ clearTimeout(benchRun._t); benchR
 /* =========================================================================
    TUTORIAL
    ========================================================================= */
+/* textos que mudam com a trilha (o tutorial roda na fase 1 do torno OU da fresa) */
+const TUTM = () => P && P.lv.machine==='fresa'
+  ? {fresa:true, code:'G94', row1:'Esta (N10) é o <b>bloco de segurança</b> — a coluna do meio diz o que cada código faz.',
+     ask:'<i>avanço em milímetros por minuto</i>. O código é <b>G94</b> (na fresa o F é em mm/min).', rest:'', end:'para ver a ferramenta se mover!'}
+  : {fresa:false, code:'M3', row1:'Esta (G97 S500) deixa a rotação em 500 rpm.',
+     ask:'<i>ligue o fuso no sentido horário</i>. O código é <b>M3</b> (M de "miscelânea", 3 = horário).', rest:' (M5, M4, M5)', end:'para ver o fuso girar!'};
 const TUT=[
- {sel:'#simPanel .mview', txt:'Este é o <b>simulador</b>, montado igual ao <b>SwanSoft</b> (Fanuc 0i): aqui a máquina e a peça em <b>3D</b> — ela é usinada de verdade pelo seu código. Em <b>Peça bruta</b> você muda as dimensões do material; em <b>Ferramentas</b> monta a torre (desbaste, acabamento, bedame, broca, rosca…).'},
+ {sel:'#simPanel .mview', txt:()=>'Este é o <b>simulador</b>, montado igual ao <b>SwanSoft</b> (Fanuc 0i): aqui a máquina e a peça em <b>3D</b> — ela é usinada de verdade pelo seu código. Em <b>Peça bruta</b> você muda as dimensões do material; em <b>Ferramentas</b> monta a '+(TUTM().fresa?'magazine (fresa de topo, broca, macho, escareador…).':'torre (desbaste, acabamento, bedame, broca, rosca…).')},
  {sel:'#simPanel .fanuc', txt:'A <b>tela do comando</b>. As teclas embaixo trocam a página: <b>POS</b> (posição dos eixos, F, S, T), <b>PROG</b> (o programa rodando), <b>OFS/SET</b> (corretores das ferramentas) e <b>MESSAGE</b> (alarmes).'},
- {sel:'#opPanel', txt:'O <b>painel de operação</b>. Para rodar um programa, igual na máquina: <b>1)</b> modo <b>REF</b> e aperte <b>X</b> e depois <b>Z</b> (referenciar); <b>2)</b> modo <b>MEM</b>; <b>3)</b> <b>CYCLE START</b>. No <b>JOG</b> você move os eixos na mão; no <b>MDI</b> digita um bloco e executa.'},
+ {sel:'#opPanel', txt:()=>'O <b>painel de operação</b>. Para rodar um programa, igual na máquina: <b>1)</b> modo <b>REF</b> e aperte '+(TUTM().fresa?'<b>Z</b> e depois <b>X</b> e <b>Y</b>':'<b>X</b> e depois <b>Z</b>')+' (referenciar); <b>2)</b> modo <b>MEM</b>; <b>3)</b> <b>CYCLE START</b>. No <b>JOG</b> você move os eixos na mão; no <b>MDI</b> digita um bloco e executa.'},
  {sel:'#progTable', txt:'Aqui está o <b>programa</b>. Cada linha é um <b>bloco</b>. Linhas cinza já vêm prontas; nas que têm campo, <b>você escreve o código</b>. A coluna do meio diz o que o bloco tem que fazer.'},
- {sel:'#progTable tr[data-r="1"]', txt:'Clique numa linha e a tela do comando mostra como a máquina fica <b>depois</b> daquele bloco. Esta (G97 S500) deixa a rotação em 500 rpm.'},
+ {sel:'#progTable tr[data-r="1"]', txt:()=>'Clique numa linha e a tela do comando mostra como a máquina fica <b>depois</b> daquele bloco. '+TUTM().row1},
  {sel:'#progTable tr[data-r="2"]', gate:true, check:()=>{
     const v=valOf(2), i=rowInfo(2);
     if(i.ok){ $(`#progTable input[data-r="2"]`).classList.add('ok'); return {ok:true}; }
-    return {ok:false, msg: v.trim()?diag(i).msg:'Digite <b>M3</b> no campo desta linha.'}; },
-  txt:'Sua vez! O bloco <b>N20</b> pede: <i>ligue o fuso no sentido horário</i>. O código é <b>M3</b> (M de "miscelânea", 3 = horário). Digite <b>M3</b> no campo e clique em <b>Conferir</b>.'},
+    return {ok:false, msg: v.trim()?diag(i).msg:`Digite <b>${TUTM().code}</b> no campo desta linha.`}; },
+  txt:()=>`Sua vez! O bloco <b>N20</b> pede: ${TUTM().ask} Digite <b>${TUTM().code}</b> no campo e clique em <b>Conferir</b>.`},
  {sel:'#btnHint', txt:'Empacou? A <b>Dica</b> lê o que você digitou e diz o que está errado — o 1º nível é grátis. Depois de 3 tentativas, <b>Explicar</b> mostra bloco a bloco.'},
  {sel:'#btnAula', txt:'A <b>Aula</b> da fase fica aqui, e a <b>Cola</b> lista todos os códigos que você já aprendeu. O <b>Manual</b> (lá em cima) tem tudo do livro.'},
- {sel:'#btnCheck', txt:'Complete os blocos que faltam (M5, M4, M5) e clique em <b>Verificar</b>. Depois referencie a máquina e rode com <b>CYCLE START</b> para ver o fuso girar!'}
+ {sel:'#btnCheck', txt:()=>`Complete os blocos que faltam${TUTM().rest} e clique em <b>Verificar</b>. Depois referencie a máquina e rode com <b>CYCLE START</b> ${TUTM().end}`}
 ];
 let tstep=0, tutTarget=null, tutFails=0;
 function startTutorial(){
@@ -1368,7 +1379,7 @@ function tutShow(){
   const s=TUT[tstep], el=$(s.sel); if(!el){ endTutorial(); return; }
   setView('#screen-play', el.closest('#simPanel')?'sim':'prog');
   tutTarget=el; tutFails=0;
-  $('#tutStep').textContent=`PASSO ${tstep+1}/${TUT.length}`; $('#tutText').innerHTML=s.txt; $('#tutErr').textContent='';
+  $('#tutStep').textContent=`PASSO ${tstep+1}/${TUT.length}`; $('#tutText').innerHTML=typeof s.txt==='function'?s.txt():s.txt; $('#tutErr').textContent='';
   $('#tutGive').style.display='none'; $('#tutBack').disabled=tstep===0;
   $('#tutNext').textContent=s.gate?'Conferir':(tstep===TUT.length-1?'Começar':'Próximo ›');
   $('#tutor').classList.toggle('interactive',!!s.gate);
@@ -1393,7 +1404,7 @@ $('#tutNext').onclick=()=>{
     sndOk(); rerun(); }
   tstep++; tstep>=TUT.length?endTutorial():tutShow();
 };
-$('#tutGive').onclick=()=>{ const el=$('#progTable input[data-r="2"]'); if(el){ el.value='M3'; el.classList.add('ok'); } $('#tutErr').textContent=''; $('#tutGive').style.display='none'; };
+$('#tutGive').onclick=()=>{ const el=$('#progTable input[data-r="2"]'); if(el){ el.value=TUTM().code; el.classList.add('ok'); } $('#tutErr').textContent=''; $('#tutGive').style.display='none'; };
 $('#tutBack').onclick=()=>{ if(tstep>0){ tstep--; tutShow(); } };
 $('#tutSkip').onclick=()=>{ endTutorial(); toast('Sem problema — o Manual tem "Rever o tutorial".',3500); };
 function endTutorial(){ $('#tutor').classList.remove('on','interactive'); removeEventListener('scroll',tutReflow,true); removeEventListener('resize',tutReflow); tutTarget=null; S.tutorial=true; save(); }

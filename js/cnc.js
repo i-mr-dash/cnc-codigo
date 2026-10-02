@@ -40,7 +40,9 @@ function parse(text){
     const c=s[i];
     if(/[A-Z]/.test(c)){
       const word=(s.slice(i).match(/^[A-Z]+/)||[c])[0];
-      out.err = word.length>1
+      out.err = /^(CR|RND|CHF|AP|RP)$/.test(word) && /^\s*[\d.+-]/.test(s.slice(i+word.length))
+        ? `<b>${word}</b> com número? Endereço de várias letras (Siemens) leva sinal de igual: <b>${word}=…</b> (ex.: RND=10.). No Fanuc cada palavra é UMA letra + número.`
+        : word.length>1
         ? `Não entendi <b>${word}</b>: cada palavra é UMA letra seguida de um número (ex.: <b>G0</b>, <b>X20.</b>). Separe as letras.`
         : `A letra <b>${c}</b> está sem número. Toda palavra é letra + número (ex.: <b>${c}0</b>).`;
       return out;
@@ -97,7 +99,35 @@ function simulate(lines, machine){
 
   const pos = () => ({x:st.x, y:st.y, z:st.z});
   let _fill=null; function pushFill(f){ _fill=f; }
-  function push(kind, pts, row){ if(_fill && pts.length>1){ pts._fill=_fill; }  if(pts.length>1) segs.push({kind, pts, row, tool:st.tool, comp:st.comp, spin:st.spin, fill:_fill||undefined}); _fill=null; }
+  function push(kind, pts, row){ if(_fill && pts.length>1){ pts._fill=_fill; }  if(pts.length>1) segs.push({kind, pts, row, tool:st.tool, comp:st.comp, plane:st.plane, spin:st.spin, fill:_fill||undefined}); _fill=null; }
+
+  /* ,R / ,C (Fanuc): arredonda/chanfra o canto entre o bloco que tem a vírgula e o próximo G1 */
+  let cornerPend=null;
+  function corner(segN, o){
+    const s = segs.length>segN ? segs[segs.length-1] : null, c=cornerPend;
+    cornerPend=null;
+    if(c && s && s.kind!=='rapid' && st.plane===17){
+      const a=c.seg, P=a.pts[a.pts.length-1], A=a.pts[a.pts.length-2], B=s.pts[s.pts.length-1];
+      const l1=Math.hypot(A.x-P.x,A.y-P.y), l2=Math.hypot(B.x-P.x,B.y-P.y);
+      if(l1>1e-6 && l2>1e-6 && Math.abs(A.z-P.z)<1e-6 && Math.abs(B.z-P.z)<1e-6 && Math.hypot(s.pts[0].x-P.x,s.pts[0].y-P.y)<1e-6){
+        const e1={x:(A.x-P.x)/l1, y:(A.y-P.y)/l1}, e2={x:(B.x-P.x)/l2, y:(B.y-P.y)/l2};
+        const th=Math.acos(Math.max(-1,Math.min(1,e1.x*e2.x+e1.y*e2.y)));
+        const d = th>1e-3 && th<Math.PI-1e-3 ? (c.L===',C' ? c.v : c.v/Math.tan(th/2)) : 0;
+        if(d>0 && d<l1+1e-6 && d<l2+1e-6){
+          const T1={...P, x:P.x+e1.x*d, y:P.y+e1.y*d}, T2={...P, x:P.x+e2.x*d, y:P.y+e2.y*d}, mid=[];
+          if(c.L===',R'){
+            const bx=e1.x+e2.x, by=e1.y+e2.y, bl=Math.hypot(bx,by), h=c.v/Math.sin(th/2), C={x:P.x+bx/bl*h, y:P.y+by/bl*h};
+            const a0=Math.atan2(T1.y-C.y,T1.x-C.x); let da=Math.atan2(T2.y-C.y,T2.x-C.x)-a0;
+            while(da>Math.PI) da-=2*Math.PI; while(da<-Math.PI) da+=2*Math.PI;
+            for(let k=1;k<12;k++){ const t=a0+da*k/12; mid.push({...P, x:C.x+c.v*Math.cos(t), y:C.y+c.v*Math.sin(t)}); }
+          }
+          a.pts.splice(a.pts.length-1, 1, T1, ...mid, T2);
+          s.pts[0]={...T2};
+        }
+      }
+    }
+    if(!T && s && (',R' in o || ',C' in o)) cornerPend={seg:s, L:',R' in o?',R':',C', v:',R' in o?o[',R']:o[',C']};
+  }
 
   function moveTo(t, kind, row){
     const a=pos();
@@ -119,7 +149,7 @@ function simulate(lines, machine){
     let U,V,cu=null,cv=null;
     if(T){ U=p=>p.z; V=p=>p.x/2;
       if(I!=null||K!=null){ cu=a.z+(K||0); cv=a.x/2+(I||0); } }
-    else if(plane===18){ U=p=>p.z; V=p=>p.x; if(I!=null||K!=null){ cu=a.z+(K||0); cv=a.x+(I||0);} cw=!cw; }
+    else if(plane===18){ U=p=>p.z; V=p=>p.x; if(I!=null||K!=null){ cu=a.z+(K||0); cv=a.x+(I||0);} }   // (Z,X) visto de +Y: G2 = horário
     else if(plane===19){ U=p=>p.y; V=p=>p.z; if(J!=null||K!=null){ cu=a.y+(J||0); cv=a.z+(K||0);} }
     else { U=p=>p.x; V=p=>p.y; if(I!=null||J!=null){ cu=a.x+(I||0); cv=a.y+(J||0);} }
     const au=U(a), av=V(a), bu=U(b), bv=V(b);
@@ -245,7 +275,7 @@ function simulate(lines, machine){
       else if(M===8) st.cool=true; else if(M===9) st.cool=false;
       else if(M===0||M===1){ st.stop=M===0?'M0':'M1'; }
       else if(M===30||M===2){ st.spin=5; st.cool=false; if(!inner) st.ended=true; }
-      else if(M===98 && 'P' in o && !inner){ callSub(o.P, row); }
+      else if(M===98 && 'P' in o && !inner){ callSub(o.P, row, o.L); }
     }
     if(oneShot===4){ st.dwell=('X' in o?o.X:('P' in o?o.P/1000:0)); return; }
 
@@ -263,6 +293,7 @@ function simulate(lines, machine){
       shapes.push({kind:'rect', x:cx, y:cy, w, h, row});
       pushFill({kind:'rect', x:cx, y:cy, w, h, z});
       push('feed', [{x:cx-w/2,y:cy-h/2,z},{x:cx+w/2,y:cy-h/2,z},{x:cx+w/2,y:cy+h/2,z},{x:cx-w/2,y:cy+h/2,z},{x:cx-w/2,y:cy-h/2,z}], row);
+      segs[segs.length-1].comp=41;   // D da bolsa: o centro da fresa anda por dentro da parede (percurso anti-horário)
       return;
     }
     if(!T && (oneShot===12||oneShot===13)){
@@ -270,7 +301,7 @@ function simulate(lines, machine){
       for(let k=0;k<=48;k++){ const t=k/48*2*Math.PI; pts.push({x:cx+r*Math.cos(t), y:cy+r*Math.sin(t), z}); }
       shapes.push({kind:'circle', x:cx, y:cy, r, row});
       pushFill({kind:'circle', x:cx, y:cy, r, z});
-      push('feed', pts, row); return;
+      push('feed', pts, row); segs[segs.length-1].comp=41; return;
     }
 
     // ciclo de furação da fresa: define e fura
@@ -283,22 +314,28 @@ function simulate(lines, machine){
     const anyAxis = T ? (has('X')||has('Z')||has('U')||has('W')) : (has('X')||has('Y')||has('Z'));
     if(!anyAxis) return;
     let t={};
+    function polarXY(){   // G16: X = raio, Y = ângulo; o que faltar mantém o valor atual
+      const r=has('X')?o.X:Math.hypot((st.x??0)-st.shift.x,st.y-st.shift.y);
+      const ang=has('Y') ? o.Y*Math.PI/180 : Math.atan2(st.y-st.shift.y,(st.x??0)-st.shift.x);
+      return {x:st.shift.x+r*Math.cos(ang), y:st.shift.y+r*Math.sin(ang)};
+    }
     if(T){
       t.x = has('X') ? o.X : has('U') ? (st.x??0)+o.U : st.x;
       t.z = has('Z') ? o.Z : has('W') ? (st.z??0)+o.W : st.z;
       if(!st.abs){ if(has('X')) t.x=(st.x??0)+o.X; if(has('Z')) t.z=(st.z??0)+o.Z; }
     }else if(st.cyc){
-      // com ciclo ativo, X/Y posicionam e furam; Z/R são do ciclo
-      t.x = has('X') ? (st.abs?st.shift.x+o.X:st.x+o.X) : st.x;
-      t.y = has('Y') ? (st.abs?st.shift.y+o.Y:st.y+o.Y) : st.y;
+      // com ciclo ativo, X/Y posicionam e furam; Z/R são do ciclo (com G16: furação em círculo, X=raio Y=ângulo)
+      if(st.polar && st.plane===17) Object.assign(t, polarXY());
+      else {
+        t.x = has('X') ? (st.abs?st.shift.x+o.X:st.x+o.X) : st.x;
+        t.y = has('Y') ? (st.abs?st.shift.y+o.Y:st.y+o.Y) : st.y;
+      }
       if(st.x===null) st.x=t.x;
       moveTo({x:t.x,y:t.y}, 'rapid', row);
       drillAt(row); return;
     }else{
       if(st.polar && st.plane===17){
-        const r=has('X')?o.X:Math.hypot((st.x??0)-st.shift.x,st.y-st.shift.y);
-        const ang=(has('Y')?o.Y:0)*Math.PI/180;
-        t.x=st.shift.x+r*Math.cos(ang); t.y=st.shift.y+r*Math.sin(ang);
+        Object.assign(t, polarXY());
       }else if(st.abs){
         t.x = has('X') ? st.shift.x+o.X : st.x;
         t.y = has('Y') ? st.shift.y+o.Y : st.y;
@@ -309,6 +346,7 @@ function simulate(lines, machine){
       if(st.x===null && t.x!=null) st.x=t.x;
     }
     if(st.mot===2||st.mot===3){
+      cornerPend=null;
       const a=pos();
       if(a.x===null || a.z===null || st.home){ moveTo(t,'feed',row); return; }
       const b={x:t.x??a.x, y:t.y??a.y, z:t.z??a.z};
@@ -320,7 +358,9 @@ function simulate(lines, machine){
       else push('arc', arc.pts, row);
       return;
     }
+    const segN=segs.length;
     moveTo(t, st.mot===0?'rapid':'feed', row);
+    if(!T) corner(segN, o);
   }
 
   function latheCycle(G, o, row){
@@ -381,9 +421,9 @@ function simulate(lines, machine){
     }
   }
 
-  function callSub(P, row){
+  function callSub(P, row, L){
     const pn=Math.round(P), s=String(pn);
-    const reps = s.length>4 ? Math.min(+s.slice(0,-4),60) : 1, num=+s.slice(-4);
+    const reps = Math.min(L!=null ? Math.max(1,Math.round(L)) : s.length>4 ? +s.slice(0,-4) : 1, 60), num=+s.slice(-4);   // P250002 ou P2 L25
     const i0=byO[num];
     if(i0==null){ errs.push({row, msg:`Subprograma O${String(num).padStart(4,'0')} não existe neste programa.`}); return; }
     const s0=segs.length;
@@ -569,6 +609,20 @@ function diagnose(row, typed, ctx, machine, lastExpX){
     if(machine==='torno' && (w.L==='X'||w.L==='U') && e!==0 && near(g,e*2)) return {code:'dobro', msg:`${w.L} ficou com o dobro. O desenho já mostra o <b>diâmetro</b> — não multiplique por 2.`};
     if(T && w.L==='I' && e!==0 && near(g,e*2)) return {code:'dobro', msg:'O <b>I</b> é medido no <b>RAIO</b> (diferente do X, que é diâmetro): é a metade da diferença de diâmetros entre o início e o centro.'};
     if(w.L==='F' && ctx && machine==='torno' && g>=10 && e<2) return {code:'feed', msg:`F${fmtN(g)} parece mm/min. No torno com <b>G95</b> o avanço é em <b>mm por rotação</b> (valores como 0.1, 0.2, 0.3).`};
+    const eG=group(parse(d.v).words);
+    if(eG.M.includes(98) && w.L==='P'){
+      const pad=v=>String(Math.round(v)%10000).padStart(4,'0'), rep=v=>Math.floor(Math.round(v)/10000);
+      if(pad(g)!==pad(e)) return {code:'sub', msg:`Os <b>4 últimos dígitos</b> do P são o número do subprograma: O${pad(e)} → P…<b>${pad(e)}</b>.`};
+      return {code:'sub', msg:`O subprograma (…${pad(e)}) está certo, mas as <b>repetições</b> não: os dígitos ANTES dos 4 últimos dizem quantas vezes rodar — ${rep(e)} vezes = <b>P${rep(e)}${pad(e)}</b>.`};
+    }
+    if((eG.G.includes(4)||eG.G.includes(82)) && (w.L==='P'||w.L==='X')){
+      if(w.L==='P' && near(g*1000,e)) return {code:'tempo', msg:`No ${eG.G.includes(82)?'G82':'G4'} o <b>P</b> é em <b>milésimos de segundo</b>, sem ponto: ${fmtN(g)} s = <b>P${fmtN(e)}</b>.`};
+      if(w.L==='X' && near(g,e*1000)) return {code:'tempo', msg:`No G4 o <b>X</b> é em <b>segundos</b>: <b>X${fmtN(e)}</b>. (Em milésimos se usa o P: P${fmtN(g)}.)`};
+    }
+    if(w.L==='F' && eG.G.includes(4)) return {code:'tempo', msg:'No Fanuc a pausa do <b>G4</b> vai em <b>X</b> (segundos) ou <b>P</b> (milésimos). <b>F</b> é a pausa do Siemens — aqui F seria avanço.'};
+    if(eG.G.includes(16) && (w.L==='X'||w.L==='Y')) return {code:'valor', msg:'Com <b>G16</b> (polar) o <b>X é o RAIO</b> e o <b>Y é o ÂNGULO</b> (graus, + anti-horário a partir do eixo X).'};
+    if(w.L==='F' && machine==='fresa' && eG.G.includes(84)) return {code:'feed', msg:`No G84 (macho) o avanço tem que acompanhar a rosca: <b>F = rpm × passo</b>. F${fmtN(g)} não confere.`};
+    if(w.L==='F' && machine==='fresa' && g<10 && e>=10) return {code:'feed', msg:`F${fmtN(g)} parece mm/rotação (torno). Na fresa, com <b>G94</b>, o avanço é em <b>mm por minuto</b> (valores como F150, F300).`};
     if((w.L==='Q'||w.L==='P') && near(g*1000,e)) return {code:'micron', msg:`Neste ciclo ${w.L} é em <b>mícrons</b>, sem ponto: ${fmtN(g)} mm = <b>${w.L}${fmtN(e)}</b>.`};
     if((w.L==='Q'||w.L==='P') && near(g,e*1000)) return {code:'micron', msg:`${w.L}${fmtN(g)} ficou mil vezes maior. Confira a unidade pedida no enunciado.`};
     if(w.L==='T' && machine==='torno' && near(g*100+g,e)) return {code:'tool', msg:'No torno o T tem <b>4 dígitos</b>: os 2 primeiros são a posição na torre, os 2 últimos o corretor. Ex.: T0101.'};
@@ -640,13 +694,17 @@ function latheWord(L, v, G, o){
 function explainBlock(text, machine){
   const p=parse(text);
   if(p.err) return [p.err];
-  const out=[], gr=group(p.words), T=machine==='torno';
+  const out=[], gr=group(p.words), T=machine==='torno', multi=machine==='multi', m=multi?'fresa':machine;   // 'multi' = fase do tradutor (Siemens / Mach 9)
+  const dwell=p.words.some(w=>w.L==='G' && Math.round(w.v)===4);
+  const PAUSA={X:'s (Fanuc)', P:'ms (Fanuc)', F:'s (Siemens)', D:'s (Mach 9)'};
   for(const w of p.words){
     if(w.v===null){ out.push(`<b>${w.raw}</b>`); continue; }
     const t= T && w.L==='T' ? 'T'+String(Math.round(w.v)).padStart(4,'0')
       : T && w.L==='P' && gr.G.includes(76) && !('X' in gr.o) && !('U' in gr.o) ? 'P'+String(Math.round(w.v)).padStart(6,'0')
       : wordTxt(w.L,w.v);
-    const e=(T && latheWord(w.L,w.v,gr.G,gr.o)) || explainWord(w.L,w.v,machine);
+    const e= dwell && PAUSA[w.L] ? `pausa de ${fmtN(w.v)} ${PAUSA[w.L]}`
+      : multi && w.L==='G' && w.v===71 ? 'milímetros (Siemens / Mach 9 — no Fanuc é G21)'
+      : (T && latheWord(w.L,w.v,gr.G,gr.o)) || explainWord(w.L,w.v,m);
     out.push(`<b>${t}</b> → ${e}`);
   }
   if(p.comment) out.push(`<b>(${p.comment})</b> → comentário, a máquina ignora`);

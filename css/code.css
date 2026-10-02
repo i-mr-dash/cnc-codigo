@@ -194,7 +194,8 @@ code,.mono{font-family:var(--mono)}
 .help-grid .card td,.help-grid .card th{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
 .help-grid .card th{color:var(--acc2);font-size:11px;text-transform:uppercase;letter-spacing:1px}
 .help-grid .card td:first-child{font-family:var(--mono);color:var(--acc);font-weight:800;white-space:nowrap}
-.help-grid .card.wide{grid-column:1/-1}
+.help-grid .card.wide{grid-column:1/-1;overflow-x:auto}
+.help-grid .card.wide td:first-child{white-space:normal}   /* fluxos com blocos longos: quebra em vez de vazar no celular */
 .cola-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
 .cola-grid .acard .k{font-size:16px}
 body > #simPanel{display:none}

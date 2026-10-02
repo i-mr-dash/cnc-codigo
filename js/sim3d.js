@@ -107,7 +107,8 @@ function millRad(t, seg){
 function alarm(row,msg){ if(!alarms.some(a=>a.row===row&&a.msg===msg)) alarms.push({row,msg}); }
 function applyPoint(seg, p0, prev){
   const t=toolOf(seg.tool);
-  if(seg.tool && !t && seg.kind!=='rapid'){ alarm(seg.row, `FERRAMENTA T${String(seg.tool).slice(0,2)} NÃO ESTÁ MONTADA (veja FERRAMENTAS)`); return; }
+  if(seg.tool && !t){   // sem ferramenta não corta — e o recuo em G0 de um furo "não feito" não é colisão
+    if(seg.kind!=='rapid') alarm(seg.row, `FERRAMENTA T${String(seg.tool).slice(0,2)} NÃO ESTÁ MONTADA (veja FERRAMENTAS)`); return; }
   const p={...p0};
   if(t && t.measured===false){ p.z=(p.z??0)+MEAS_ERR; alarm(seg.row, `T${String(seg.tool).slice(0,2)} SEM CORRETOR MEDIDO — trabalha ${MEAS_ERR} mm fora do lugar (meça em FERRAMENTAS / OFS)`); }
   if(machine==='torno'){
@@ -122,14 +123,16 @@ function applyPoint(seg, p0, prev){
   }else{
     const rad=millRad(t,seg);
     let x=p.x, y=p.y;
-    if((seg.comp===41||seg.comp===42) && prev && seg.kind!=='drill' && seg.kind!=='rapid'){
-      const dx=p0.x-prev.x, dy=p0.y-prev.y, d=Math.hypot(dx,dy);
+    if((seg.comp===41||seg.comp===42) && (seg.plane||17)===17 && seg.kind!=='drill' && seg.kind!=='rapid'){
+      // 1º ponto do bloco: usa a direção do próprio bloco (senão a fresa ficaria centrada no canto e morderia a peça)
+      const q=prev||seg.pts[0], r=prev?p0:(seg.pts[1]||p0);
+      const dx=r.x-q.x, dy=r.y-q.y, d=Math.hypot(dx,dy);
       if(d>1e-6){ const s=seg.comp===41?1:-1; x+=-dy/d*rad*s; y+=dx/d*rad*s; }
     }
     p0._x=x; p0._y=y;
     if(seg.kind==='rapid'){ if(millInside(x,y,p.z,rad*0.8)) alarm(seg.row,'COLISÃO: AVANÇO RÁPIDO (G0) DENTRO DO MATERIAL'); return; }
-    if(millInside(x,y,p.z,rad*0.8) && seg.spin===5) alarm(seg.row,'CORTE COM O FUSO PARADO (faltou M3)');
-    carveMill(x,y,p.z,rad);
+    if((seg.fill ? p.z<0 : millInside(x,y,p.z,rad*0.8)) && seg.spin===5) alarm(seg.row,'CORTE COM O FUSO PARADO (faltou M3)');
+    if(!seg.fill) carveMill(x,y,p.z,rad);          // bolsa (G71/G72/G12/G13): o fillMill já tirou o material na medida
   }
 }
 function samples(seg, step){

@@ -718,11 +718,11 @@ const LEVELS_FRESA = [
     g('N60','G0 X-15. Y0',''), g('N70','G43 H01 Z10.',''), g('N80','G0 Z5. M8',''),
     g('N90','G1 Z-5. F200','Penetra'),
     g('N100','G1 X0 Y0','Até A'),
-    w('N110','G1 X60.,R10.','Vá até B (X60) arredondando o canto com R10'),
-    w('N120','G1 Y60.,C5.','Suba até C (Y60) com chanfro de 5 mm no canto'),
-    w('N130','G1 X0,R15.','Volte até D (X0) com arredondamento R15'),
-    w('N140','G1 Y0','Feche descendo até A (Y0)'),
-    w('N150','G1 X-15.','Saia da peça'),
+    w('N110','G1 X60.,R10.','Vá até B (X60) arredondando o canto com R10',{alt:['G1 X60. Y0,R10.']}),
+    w('N120','G1 Y60.,C5.','Suba até C (Y60) com chanfro de 5 mm no canto',{alt:['G1 X60. Y60.,C5.']}),
+    w('N130','G1 X0,R15.','Volte até D (X0) com arredondamento R15',{alt:['G1 X0 Y60.,R15.']}),
+    w('N140','G1 Y0','Feche descendo até A (Y0)',{alt:['G1 X0 Y0']}),
+    w('N150','G1 X-15.','Saia da peça',{alt:['G1 X-15. Y0']}),
     ...F_END(160)
   ]
 },
@@ -822,7 +822,7 @@ const LEVELS_FRESA = [
     ...F_HDR('O0011 (FURO E MACHO)'),
     g('N60','G0 X30. Y15. M8',''), g('N70','G43 H01 Z10.',''),
     w('N80','G83 X30. Y15. Z-60. R3. F100 Q15.','Furo F1 com descarga: fundo Z-60, R3, avanço 100, bicadas de 15 mm'),
-    w('N90','Y30.','Furo F2 (só muda o Y)'),
+    w('N90','Y30.','Furo F2 (só muda o Y)',{alt:['X30. Y30.']}),
     w('N100','G80','Cancele o ciclo'),
     g('N110','G0 G53 Z-110. H00 M5',''), g('N120','T02 M6 (MACHO M10X1.5)',''), g('N130','G54',''),
     w('N140','S318 M3','Rotação do macho: 318 rpm, horário'),
@@ -849,12 +849,12 @@ const LEVELS_FRESA = [
     ...F_HDR('O0012 (MANDRILAR)'),
     g('N60','G0 X30. Y15. M8',''), g('N70','G43 H01 Z10.',''),
     w('N80','G85 X30. Y15. Z-30. R3. F100','Alargue o furo F1 (volta em avanço): fundo Z-30, R3, avanço 100'),
-    w('N90','Y35.','Alargue F2 (X30 Y35)'),
+    w('N90','Y35.','Alargue F2 (X30 Y35)',{alt:['X30. Y35.']}),
     w('N100','G80','Cancele o ciclo'),
     g('N110','G0 G53 Z-110. H00 M5',''), g('N120','T02 M6 (MANDRIL)',''), g('N130','G54',''), g('N140','S800 M3',''),
     g('N150','G0 X30. Y15. M8',''), g('N160','G43 H02 Z10.',''),
     w('N170','G86 X30. Y15. Z-20. R2. F100','Mandrile F1 (volta com fuso parado): fundo Z-20, R2, avanço 100'),
-    w('N180','Y35.','Mandrile F2'),
+    w('N180','Y35.','Mandrile F2',{alt:['X30. Y35.']}),
     w('N190','G80','Cancele o ciclo'),
     w('N200','G18','Selecione o plano XZ (para um perfil visto de frente)'),
     w('N210','G17','Volte para o plano XY'),
@@ -911,7 +911,7 @@ const LEVELS_FRESA = [
     g('N60','G0 X-15. Y-15.',''), g('N70','G43 H01 Z10.',''),
     g('N80','G1 Z-2. F1000','Penetra'),
     g('N90','G1 G42 X0 Y0 F500','Compensação, até A'),
-    w('N100','G16 G90 G1 X53.574 Y37.','Ligue a POLAR e vá até B: raio 53,574, ângulo 37°'),
+    w('N100','G16 G90 G1 X53.574 Y37.','Ligue a POLAR e vá até B: raio 53,574, ângulo 37°',{alt:['G16 G1 X53.574 Y37.']}),
     w('N110','G52 X28.906 Y46.641','Desloque o zero provisoriamente para o CENTRO do arco (X28,906 Y46,641)'),
     w('N120','G3 X20. Y30. R20.','Arco anti-horário R20 até C: em polar, raio 20 e ângulo 30° a partir do novo centro'),
     w('N130','G52 X0 Y0','Desfaça o deslocamento de zero'),
@@ -973,7 +973,7 @@ const LEVELS_FRESA = [
     w('9','G111 X0 Y0','SIEMENS — defina o centro polar em X0 Y0'),
     w('10','G1 AP=37. RP=53.574','SIEMENS — linha polar: ângulo 37°, raio 53,574'),
     w('11','MCALL','SIEMENS — cancele o ciclo de furação (equivale ao G80)',{raw:true}),
-    w('12','REPEAT AAA BBB P25','SIEMENS — repita do rótulo AAA até BBB, 25 vezes',{raw:true}),
+    w('12','REPEAT AAA BBB P25','SIEMENS — repita do rótulo AAA até BBB, 25 vezes',{raw:true, alt:['REPEAT AAA BBB P=25']}),
     w('13','H90 E240 L25','MACH 9 — repita do bloco N90 até o N240, 25 vezes'),
     w('14','G71','MACH 9 ou SIEMENS — coordenadas em milímetros')
   ]
@@ -1095,10 +1095,10 @@ function makeEndlessLevelFresa(run){
     g('N80','G0 Z5. M8',''),
     w('N90',`G1 Z-5. F${F}`,`Penetre 5 mm, avanço ${F}`),
     w('N100','G42 D01 G1 X0 Y0',`Compensação D01 entrando em A — contorno anti-horário, externo`),
-    w('N110',`G1 X${f1(Wd)},R${f1(r)}`,`Até B (X${Wd}) arredondando o canto com R${r}`),
-    w('N120',`G1 Y${f1(H)},C${f1(c)}`,`Até C (Y${H}) com chanfro de ${c} mm`),
-    w('N130','G1 X0',`Até D (X0)`),
-    w('N140','G1 Y0','Até A (Y0)'),
+    w('N110',`G1 X${f1(Wd)},R${f1(r)}`,`Até B (X${Wd}) arredondando o canto com R${r}`,{alt:[`G1 X${f1(Wd)} Y0,R${f1(r)}`]}),
+    w('N120',`G1 Y${f1(H)},C${f1(c)}`,`Até C (Y${H}) com chanfro de ${c} mm`,{alt:[`G1 X${f1(Wd)} Y${f1(H)},C${f1(c)}`]}),
+    w('N130','G1 X0',`Até D (X0)`,{alt:[`G1 X0 Y${f1(H)}`]}),
+    w('N140','G1 Y0','Até A (Y0)',{alt:['G1 X0 Y0']}),
     w('N150','G40 G1 X-15. Y-15.','Desliga a compensação saindo'),
     g('N160','G0 Z10.','')
   ];
@@ -1106,7 +1106,7 @@ function makeEndlessLevelFresa(run){
   const q= cyc===83 ? ` Q${f1(pick([3,5]))}` : '';
   rows.push(w('N170',`G${cyc} X${f1(hx[0])} Y${f1(hy)} Z${f1(Z)} R3. F100${q}`,
     `Furo 1 em X${hx[0]} Y${hy}: ${cyc===83?'com DESCARGA (bicadas'+q.replace(' Q',' de ')+' mm)':'furação simples'}, fundo Z${Z}, R3, F100`));
-  rows.push(w('N180',`X${f1(hx[1])}`,`Furo 2 em X${hx[1]} (mesmo Y)`));
+  rows.push(w('N180',`X${f1(hx[1])}`,`Furo 2 em X${hx[1]} (mesmo Y)`,{alt:[`X${f1(hx[1])} Y${f1(hy)}`]}));
   rows.push(w('N190','G80','Cancele o ciclo'));
   rows.push(...F_END(200));
   return { id:'∞', endless:true, machine:'fresa', name:`Placa aleatória #${run}`, sub:'Modo Infinito',
