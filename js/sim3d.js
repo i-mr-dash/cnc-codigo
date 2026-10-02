@@ -237,6 +237,12 @@ function mats(){
   MAT.cool=new THREE.MeshBasicMaterial({color:0x43d0ff, transparent:true, opacity:0.55});
   MAT.rapid=new THREE.LineDashedMaterial({color:0xffb020, dashSize:2, gapSize:2});
   MAT.feed=new THREE.LineBasicMaterial({color:0x43d0ff});
+  MAT.carb=new THREE.MeshStandardMaterial({color:0x2d3138, metalness:0.5, roughness:0.3});
+  MAT.tin=new THREE.MeshStandardMaterial({color:0xd4a93c, metalness:0.85, roughness:0.28});
+  MAT.body=new THREE.MeshStandardMaterial({color:0x8f98a3, metalness:0.6, roughness:0.4});
+  MAT.blade=new THREE.MeshStandardMaterial({color:0x7d8794, metalness:0.8, roughness:0.3});
+  MAT.screw=new THREE.MeshStandardMaterial({color:0xd5d9de, metalness:0.9, roughness:0.2});
+  MAT.flute=new THREE.MeshStandardMaterial({color:0x23272d, metalness:0.5, roughness:0.45});
 }
 function clearGroup(g){ while(g.children.length){ const o=g.children.pop(); o.traverse(x=>{ if(x.geometry) x.geometry.dispose(); }); } }
 let sceneKey='';
@@ -263,57 +269,142 @@ function buildScene(){
   coolant.visible=false; toolGroup.add(coolant);
   rebuildPart();
 }
-/* modelos 3D de cada tipo de ferramenta (ponta da ferramenta na origem do grupo) */
+/* modelos 3D das ferramentas (ponta da ferramenta na origem do grupo)
+   torno: mundo X = Z da máquina, mundo Y = raio (X da máquina), mundo Z = altura de centro
+   fresa: eixo da ferramenta = +Y do mundo (Z da máquina), ponta na origem */
 let curModelKey='';
+const D2R=Math.PI/180;
+/* pastilha rômbica com raio de ponta: canto teórico na origem, arestas nos ângulos a1 e a2 (graus) */
+function insertShape(a1, a2, L, rn, hole){
+  const e1=[Math.cos(a1*D2R),Math.sin(a1*D2R)], e2=[Math.cos(a2*D2R),Math.sin(a2*D2R)];
+  const eps=Math.abs(a1-a2)*D2R, d=rn/Math.tan(eps/2), cdist=rn/Math.sin(eps/2);
+  const bis=[e1[0]+e2[0], e1[1]+e2[1]], bl=Math.hypot(bis[0],bis[1]); bis[0]/=bl; bis[1]/=bl;
+  const C=[bis[0]*cdist, bis[1]*cdist], T1=[e1[0]*d,e1[1]*d], T2=[e2[0]*d,e2[1]*d];
+  const P1=[e1[0]*L,e1[1]*L], P3=[e2[0]*L,e2[1]*L], P2=[P1[0]+P3[0],P1[1]+P3[1]];
+  const s=new THREE.Shape();
+  s.moveTo(T2[0],T2[1]); s.lineTo(P3[0],P3[1]); s.lineTo(P2[0],P2[1]); s.lineTo(P1[0],P1[1]); s.lineTo(T1[0],T1[1]);
+  let aS=Math.atan2(T1[1]-C[1],T1[0]-C[0]), aE=Math.atan2(T2[1]-C[1],T2[0]-C[0]);
+  const cross=(T1[0]-C[0])*(T2[1]-C[1])-(T1[1]-C[1])*(T2[0]-C[0]);
+  const ccw = cross>0; if(ccw){ while(aE<aS) aE+=2*Math.PI; } else { while(aE>aS) aE-=2*Math.PI; }
+  s.absarc(C[0],C[1],rn,aS,aE,!ccw);
+  const ctr=[P2[0]/2,P2[1]/2];
+  if(hole){ const h=new THREE.Path(); h.absarc(ctr[0],ctr[1],hole,0,2*Math.PI,true); s.holes.push(h); }
+  return {shape:s, ctr, P1, P2, P3};
+}
+function extrude(shape, depth, bevel){
+  return new THREE.ExtrudeGeometry(shape,{depth, bevelEnabled:!!bevel, bevelThickness:bevel||0, bevelSize:bevel||0, bevelSegments:1, curveSegments:10});
+}
+/* canais helicoidais (broca / fresa): tubos escuros enrolados no corpo, ao longo de +Y */
+class Helix extends THREE.Curve{
+  constructor(r,len,turns,phase,y0){ super(); this.r=r; this.len=len; this.turns=turns; this.phase=phase; this.y0=y0; }
+  getPoint(t,o=new THREE.Vector3()){ const a=this.phase+t*this.turns*2*Math.PI; return o.set(this.r*Math.cos(a), this.y0+t*this.len, this.r*Math.sin(a)); }
+}
+function fluted(g, r, y0, len, nFl, mat, flMat, pitch){
+  const core=new THREE.Mesh(new THREE.CylinderGeometry(r*0.97,r*0.97,len,28), mat); core.position.y=y0+len/2; g.add(core);
+  const turns=len/pitch;
+  for(let k=0;k<nFl;k++){
+    const tube=new THREE.Mesh(new THREE.TubeGeometry(new Helix(r*0.86,len,turns,k*2*Math.PI/nFl,y0),Math.max(24,Math.round(turns*40)),r*0.3,8,false), flMat);
+    g.add(tube);
+  }
+}
+function drillBody(g, d, len, mat){
+  const r=d/2, tipH=r/Math.tan(59*D2R);                      // ponta de 118°
+  const tip=new THREE.Mesh(new THREE.ConeGeometry(r,tipH,28), mat); tip.rotation.x=Math.PI; tip.position.y=tipH/2; g.add(tip);
+  fluted(g, r, tipH, len*0.65, 2, mat, MAT.flute, Math.max(6,d*3));
+  const sh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len*0.35,28), mat); sh.position.y=tipH+len*0.65+len*0.175; g.add(sh);
+  return tipH+len;
+}
 function setToolModel(t){
-  const key = t ? t.type+'|'+(t.d||'')+'|'+(t.w||'') : 'none';
+  const key = t ? t.type+'|'+(t.d||'')+'|'+(t.w||'')+'|'+(t.r||'') : 'none';
   if(key===curModelKey) return; curModelKey=key;
   if(toolModel){ toolGroup.remove(toolModel); toolModel.traverse(x=>x.geometry&&x.geometry.dispose()); }
   const g=new THREE.Group(); toolModel=g; toolGroup.add(g);
-  const add=(geo,mat,x,y,z,rx=0,ry=0,rz=0)=>{ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.rotation.set(rx,ry,rz); g.add(m); return m; };
+  const add=(geo,mat,x,y,z,rx=0,ry=0,rz=0,parent=g)=>{ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.rotation.set(rx,ry,rz); parent.add(m); return m; };
   const type=t?t.type:'none';
   if(machine==='torno'){
+    const TH=4.76;                                            // espessura da pastilha; face de saída em z=0 (altura de centro)
+    const lathePocketTool=(a1,a2,L,rn)=>{
+      const ins=insertShape(a1,a2,L,rn,2.6);
+      add(extrude(ins.shape,TH,0.25), MAT.carb, 0,0,-TH);
+      add(new THREE.CylinderGeometry(2.3,2.3,1.6,16), MAT.screw, ins.ctr[0],ins.ctr[1],0.8, Math.PI/2,0,0);
+      const xs=[0,ins.P1[0],ins.P2[0],ins.P3[0]], ys=[0,ins.P1[1],ins.P2[1],ins.P3[1]];
+      const x0=Math.min(...xs)+1.6, x1=Math.max(...xs)+4, y0=Math.min(...ys)+1.6, y1=Math.max(...ys)+6;
+      add(new THREE.BoxGeometry(x1-x0,y1-y0,20), MAT.body, (x0+x1)/2,(y0+y1)/2,-TH-10+0.6);       // cabeça do suporte
+      add(new THREE.BoxGeometry(20,90,20), MAT.body, x1-10,y1+45,-TH-10+0.6);                      // haste 20x20
+      add(new THREE.BoxGeometry(20.4,6,20.4), MAT.hold, x1-10,y1+70,-TH-10+0.6);                   // faixa amarela
+    };
     if(type==='broca'||type==='centro'){
-      const r=(t.d||4)/2, L=type==='centro'?14:Math.max(30,t.d*8);
-      add(new THREE.ConeGeometry(r,r*1.2,20), MAT.hss, r*0.6,0,0, 0,0,Math.PI/2);
-      add(new THREE.CylinderGeometry(r,r,L,20), MAT.hss, r*1.2+L/2,0,0, 0,0,Math.PI/2);
-      add(new THREE.BoxGeometry(26,26,26), MAT.hold, r*1.2+L+13,0,0);
+      const d=(t&&t.d)||4, sub=new THREE.Group(); g.add(sub);
+      const len = type==='centro' ? 18 : Math.max(36, d*9);
+      let end;
+      if(type==='centro'){
+        const r=d/2, tipH=r/Math.tan(59*D2R);
+        add(new THREE.ConeGeometry(r,tipH,24), MAT.hss, 0,tipH/2,0, Math.PI,0,0, sub);
+        add(new THREE.CylinderGeometry(r,r,4,24), MAT.hss, 0,tipH+2,0,0,0,0,sub);
+        add(new THREE.ConeGeometry(4,5,24), MAT.hss, 0,tipH+6.5,0, Math.PI,0,0, sub);
+        add(new THREE.CylinderGeometry(4,4,12,24), MAT.hss, 0,tipH+15,0,0,0,0,sub); end=tipH+21;
+      }else end=drillBody(sub, d, len, MAT.hss);
+      add(new THREE.CylinderGeometry(Math.max(d,8)*1.1,Math.max(d,8)*1.3,14,28), MAT.body, 0,end+5,0,0,0,0,sub);   // pinça / mandril
+      add(new THREE.BoxGeometry(30,24,30), MAT.body, 0,end+24,0,0,0,0,sub);                                      // suporte axial
+      sub.rotation.z=-Math.PI/2;                                   // eixo da broca ao longo de Z da máquina
     }else if(type==='bedame'){
-      const w=t.w||3;
-      add(new THREE.BoxGeometry(w,20,4), MAT.ins, -w/2,10,0);
-      add(new THREE.BoxGeometry(14,26,12), MAT.hold, -w/2+3,32,0);
+      const w=(t&&t.w)||3;
+      add(new THREE.BoxGeometry(w+0.3,5,4.5), MAT.carb, -w/2,2.5,-2.25);
+      add(new THREE.BoxGeometry(w*0.85,30,4.5), MAT.blade, -w/2,20,-2.25);
+      add(new THREE.BoxGeometry(w*0.85,2,24), MAT.blade, -w/2,35,-12);
+      add(new THREE.BoxGeometry(16,22,26), MAT.body, -w/2+7,44,-12);
+      add(new THREE.BoxGeometry(16.4,5,26.4), MAT.hold, -w/2+7,52,-12);
     }else if(type==='interno'){
-      add(new THREE.CylinderGeometry(3,3,50,16), MAT.hold, 27,1.5,0, 0,0,Math.PI/2);
-      add(new THREE.ConeGeometry(2.2,4,3), MAT.ins, 1.5,1,0, 0,0,Math.PI);
+      const ins=insertShape(-82,-137,8,0.4,1.6);
+      add(extrude(ins.shape,3.2,0.15), MAT.carb, 0,0,-3.2);
+      add(new THREE.CylinderGeometry(4.5,4.5,70,20), MAT.body, 39,-4,-3, 0,0,Math.PI/2);
+      add(new THREE.BoxGeometry(24,24,24), MAT.body, 82,-4,-3);
     }else if(type==='rosca'){
-      add(new THREE.ConeGeometry(3,6,3), MAT.gold, 0,3,0, 0,0,0);
-      add(new THREE.BoxGeometry(10,28,10), MAT.hold, 5,19,0);
+      const h=9.5, b=h*Math.tan(30*D2R), s=new THREE.Shape();
+      s.moveTo(0,0); s.lineTo(b,h); s.lineTo(-b,h); s.lineTo(0,0);
+      add(extrude(s,3.5,0.15), MAT.tin, 0,0,-3.5);
+      add(new THREE.CylinderGeometry(1.8,1.8,1.4,14), MAT.screw, 0,h*0.66,0.7, Math.PI/2,0,0);
+      add(new THREE.BoxGeometry(14,12,20), MAT.body, 1,h+4,-13.5);
+      add(new THREE.BoxGeometry(20,90,20), MAT.body, 4,h+55,-13.5);
+      add(new THREE.BoxGeometry(20.4,6,20.4), MAT.hold, 4,h+80,-13.5);
     }else if(type==='acab'){
-      const ins=add(new THREE.ConeGeometry(3.2,9,4), MAT.ins, 2,4,0, 0,0,0.6); ins.scale.set(1,1,0.35);
-      add(new THREE.BoxGeometry(10,30,10), MAT.hold, 7,20,0);
-    }else{
-      const ins=add(new THREE.ConeGeometry(4.5,7,4), MAT.ins, 1.5,3.5,0); ins.scale.set(1,1,0.4);
-      add(new THREE.BoxGeometry(12,30,12), MAT.hold, 7,19,0);
-    }
+      lathePocketTool(87,52,16.6,(t&&t.r)||0.4);                  // VNMG 35°
+    }else if(type==='desb'){
+      lathePocketTool(85,5,12.9,(t&&t.r)||0.8);                   // CNMG 80°
+    }else add(new THREE.SphereGeometry(1.5,12,8), MAT.hold, 0,0,0);
   }else{
-    const r=t&&t.d?t.d/2:5;
-    if(type==='broca'||type==='macho'||type==='alargador'){
-      add(new THREE.ConeGeometry(r,r*1.1,20), type==='macho'?MAT.gold:MAT.hss, 0,r*0.55,0, Math.PI,0,0);
-      add(new THREE.CylinderGeometry(r,r,40,20), type==='macho'?MAT.gold:MAT.hss, 0,r*1.1+20,0);
+    const d=(t&&t.d)||10, r=d/2;
+    let top;
+    if(type==='broca'||type==='alargador'){
+      top=drillBody(g, d, Math.max(40,d*5), MAT.hss);
+    }else if(type==='macho'){
+      const tipH=r*0.5;
+      add(new THREE.CylinderGeometry(r*0.75,r*0.9,tipH,24), MAT.tin, 0,tipH/2,0);
+      add(new THREE.CylinderGeometry(r*0.92,r*0.92,22,24), MAT.tin, 0,tipH+11,0);
+      for(let k=0;k<14;k++) add(new THREE.TorusGeometry(r*0.92,r*0.1,6,24), MAT.tin, 0,tipH+1+k*1.5,0, Math.PI/2,0,0);
+      add(new THREE.CylinderGeometry(r*0.75,r*0.75,24,20), MAT.hss, 0,tipH+34,0);
+      top=tipH+46;
     }else if(type==='escareador'){
-      add(new THREE.ConeGeometry(r,r,24), MAT.gold, 0,r/2,0, Math.PI,0,0);
-      add(new THREE.CylinderGeometry(4,4,30,16), MAT.hss, 0,r+15,0);
+      add(new THREE.ConeGeometry(r,r,32), MAT.tin, 0,r/2,0, Math.PI,0,0);
+      add(new THREE.CylinderGeometry(5,5,30,20), MAT.hss, 0,r+15,0); top=r+30;
     }else if(type==='esferica'){
-      add(new THREE.SphereGeometry(r,20,12), MAT.ins, 0,r,0);
-      add(new THREE.CylinderGeometry(r,r,30,20), MAT.ins, 0,r+15,0);
+      add(new THREE.SphereGeometry(r,24,14,0,Math.PI*2,Math.PI/2,Math.PI/2), MAT.carb, 0,r,0);
+      fluted(g, r, r, 22, 2, MAT.carb, MAT.flute, d*2.6);
+      add(new THREE.CylinderGeometry(r,r,22,24), MAT.carb, 0,r+33,0); top=r+44;
     }else if(type==='facear'){
-      add(new THREE.CylinderGeometry(r,r,10,36), MAT.ins, 0,5,0);
-      add(new THREE.CylinderGeometry(12,12,20,20), MAT.hss, 0,20,0);
+      add(new THREE.CylinderGeometry(r,r*0.92,9,48), MAT.body, 0,4.5,0);
+      const n=Math.max(4,Math.round(d/10));
+      for(let k=0;k<n;k++){ const a=k*2*Math.PI/n; add(new THREE.BoxGeometry(8,4,8), MAT.tin, Math.cos(a)*(r-3),2,Math.sin(a)*(r-3), 0,-a,0); }
+      add(new THREE.CylinderGeometry(14,14,16,28), MAT.body, 0,17,0); top=25;
     }else{
-      add(new THREE.CylinderGeometry(r,r,30,20), MAT.ins, 0,15,0);
+      const L=Math.max(18,d*2.2);
+      fluted(g, r, 0, L, d>=12?4:3, MAT.carb, MAT.flute, d*2.8);
+      add(new THREE.CylinderGeometry(r,r,d*2.2,24), MAT.carb, 0,L+d*1.1,0); top=L+d*2.2;
     }
-    add(new THREE.CylinderGeometry(10,13,24,24), MAT.hold, 0,58,0);
-    add(new THREE.CylinderGeometry(24,24,40,32), MAT.dark, 0,90,0);
+    add(new THREE.CylinderGeometry(Math.max(r,6)*1.25,Math.max(r,6)*1.6,18,28), MAT.body, 0,top+9,0);
+    add(new THREE.CylinderGeometry(22,15,26,32), MAT.body, 0,top+31,0);
+    add(new THREE.CylinderGeometry(24,24,8,32), MAT.hold, 0,top+48,0);
+    add(new THREE.CylinderGeometry(26,26,40,32), MAT.dark, 0,top+72,0);
   }
   dirty=true;
 }
@@ -487,7 +578,9 @@ function loop(){
 }
 function snapshot(){ try{ placeCamera(); renderer.render(scene,camera); return renderer.domElement.toDataURL('image/jpeg',0.82); }catch(e){ return null; } }
 
-return { init, load, showFinal, resetStock, play, hold, stop, running, active, setOpts, manualMove, placeTool, setSpin, snapshot,
+function setYawPitch(y,pt){ cam.yaw=+y; cam.pitch=+pt; dirty=true; }
+function focusTool(dist){ if(!ok||!toolGroup) return; const p=toolGroup.position; cam.tx=p.x; cam.ty=p.y; cam.tz=p.z; cam.dist=dist||70; cam.yaw=0.9; cam.pitch=0.35; dirty=true; }
+return { init, load, showFinal, focusTool, setYawPitch, resetStock, play, hold, stop, running, active, setOpts, manualMove, placeTool, setSpin, snapshot,
   setPathVisible:v=>{ showPath=v; buildPath(); dirty=true; }, resetView:()=>{ frame(); dirty=true; },
   homePos:()=>M?homePos():null, getAlarms:()=>alarms.slice(),
   set onTick(f){ onTick=f; }, set onDone(f){ onDone=f; }, set onStop(f){ onStop=f; },

@@ -797,6 +797,7 @@ function startLevel(lv){
   $('#tipLine').textContent=lv.tip||'';
   $('#feedback').textContent=''; $('#feedback').className='feedback';
   $('#hintBox').innerHTML='';
+  $('#btnCheck').hidden=false; $('#btnNext').hidden=true;
   $('#btnReveal').style.display = has('reveal')?'':'none';
   $('#btnAula').style.display = lv.aula?'':'none';
   SIM.focus=-1;
@@ -1077,9 +1078,14 @@ function win(){
   const last=!lv.endless && LEVELS.indexOf(lv)===LEVELS.length-1;
   $('#resNext').textContent=lv.endless?'Próxima peça ›':last?'Ver conclusão ›':'Próxima fase ›';
   openModal('#modalResult');
-  $('#resNext').onclick=()=>{ closeModal('#modalResult'); if(newly.length) showUnlocks(newly); else nextLevel(); };
-  $('#resRepeat').textContent=lv.endless?'Outra peça':'Fechar e ver a simulação';
-  $('#resRepeat').onclick=()=>{ closeModal('#modalResult'); if(lv.endless) startLevel(makeEndless(S.endlessRun+1)); };
+  const goNext=()=>{ if(newly.length){ const l=newly.splice(0); showUnlocks(l); } else nextLevel(); };
+  $('#resNext').onclick=()=>{ closeModal('#modalResult'); goNext(); };
+  // depois de vencer, o botão Verificar vira "Próxima fase" (para quem fecha o resultado e fica vendo a usinagem)
+  $('#btnCheck').hidden=true; $('#btnNext').hidden=false; $('#btnNext').textContent=$('#resNext').textContent;
+  $('#btnNext').onclick=()=>goNext();
+  $('#resRepeat').textContent='Ver a peça sendo usinada';
+  $('#resRepeat').onclick=()=>{ closeModal('#modalResult'); setView('#screen-play','sim');
+    toast(allRef()?'Modo <b>MEM</b> → <b>CYCLE START</b> para ver a usinagem. Depois use <b>Próxima fase ›</b>.':'Para ver a usinagem: <b>REF</b> → X → Z, depois <b>MEM</b> → <b>CYCLE START</b>. Depois use <b>Próxima fase ›</b>.',6000); };
 }
 function nextLevel(){
   const lv=P.lv;
