@@ -16,9 +16,10 @@ O painel segue o procedimento do SSCNC (SwanSoft), o simulador da escola:
 
 - **Tela do comando** com softkeys e **teclado MDI** de verdade (buffer de entrada, SHIFT, CAN, INPUT, ALTER, INSERT, DELETE, cursor, PAGE, HELP).
   Páginas **POS** (ABS/REL/ALL), **PROG**, **OFFSET/SETTING** (WEAR, GEOM, SETTING, WORK, (OPRT) → NO.SRH, **MEASURE**, +INPUT, INPUT), **SYSTEM**, **MESSAGE**, **GRAPH**.
-- **Modos** EDIT · MEM · MDI · JOG · INC (×1 ×10 ×100 ×1000) · HNDL (manivela) · REF. Teclas de direção −X +X −Z +Z (fresa: Y também), RAPID, fuso CW/STOP/CCW, COOL, torre ▶,
-  SBK, DRN, BDT, OPT.STOP, overrides de avanço/rápido/JOG/fuso, CYCLE START, FEED HOLD, RESET, EMERGÊNCIA.
-- **Referência**: modo REF + teclas **+** de cada eixo. Sem referência o CYCLE START dá **ALM 224**.
+- **Painel do torno Romi G260 (SSCNC "FANUC 0i Mate-TB")**: grade 6×5 de teclas com lâmpadas (AUTO, EDIT, MDI, HOME, JOG, DRY RUN, PROG TEST, TRVS, MPG X1/X10/X100, SINGL BLOCK, BLOCK DELET, OPT STOP, TURRET POS, JOG TURRET, CLNT ON/OFF/AUTO, SPDL CW/STOP…), botões giratórios de rotação (50–120 %) e avanço (0–120 %), emergência, MACHINE ON / CNC ON / LOCK-SETUP / porta / placa / contraponto, CYCLE START/STOP e manivela (MPG).
+- **Sequência igual à da máquina**: CNC ON → soltar emergência → fechar a porta → MACHINE ON → RESET; **HOME** + eixo (+X/+Z) + **CYCLE START** para cada eixo; MPG com o eixo escolhido por ±X/±Z; torre com JOG TURRET + TURRET POS; geometria em **OFS/SET → CORRET → GEOM** (Z0 → INS. C, X+diâmetro → MEDIR), desgaste em **DESG**, zero-peça em **TRAB**.
+- O botão **HELP** do teclado e o **Manual** trazem o passo a passo completo (ligar, referenciar, zerar ferramentas, zero-peça, testar com PROG TEST/DRY RUN, executar, corrigir desgaste).
+- **3D**: torre giratória de 8 estações que indexa a ferramenta, refrigerante em jato de partículas, cavacos e faíscas durante o corte.
 - **Zero-peça e ferramentas medidos de verdade**: a ferramenta real só fica no lugar certo se o aluno medir (corte de teste + paquímetro no torno; calibrador de 1 mm e `X-6` na fresa)
   e gravar com **MEASURE** (ou digitar com INPUT). Zerado/errado → o 3D mostra a ferramenta fora do lugar (**FORA DO LUGAR**, **NADA FOI USINADO**).
   Atalho para quem tem pressa: **Ferramentas → Preparar máquina**.
@@ -43,7 +44,7 @@ bolsas G71/G72/G12/G13 → tradutor Mach 9/Siemens → CHEFE: placa completa.
 - `js/cnc.js` — parser, simulador do programa (ciclos G70–G76, G81–G86, M98, polar…) e corretor de blocos
 - `js/levels.js` — fases + gerador do Modo Infinito
 - `js/sim3d.js` — simulador 3D (three.js) com remoção de material e ferramentas
-- `js/panel.js` — painel SSCNC: tela do comando, teclado MDI, modos, REF/JOG/INC/HNDL, MEASURE, física de zero-peça/corretores
+- `js/panel.js` — painel SSCNC: tela do comando, teclado MDI, modos, HOME/JOG/MPG, MEDIR, física de zero-peça/corretores
 - `js/game.js` — interface do jogo, progressão, dicas, tutorial, loja, manual
 - `js/main.js` — inicialização
 - `css/style.css` (temas, herdado do CNC Coordenadas) e `css/code.css`

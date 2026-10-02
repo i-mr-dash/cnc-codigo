@@ -644,7 +644,7 @@ function win(){
   $('#btnNext').onclick=()=>goNext();
   $('#resRepeat').textContent='Ver a peça sendo usinada';
   $('#resRepeat').onclick=()=>{ closeModal('#modalResult'); setView('#screen-play','sim');
-    toast(allRef()?'Modo <b>MEM</b> → <b>CYCLE START</b> para ver a usinagem. Depois use <b>Próxima fase ›</b>.':'Para ver a usinagem: <b>REF</b> → X → Z, depois <b>MEM</b> → <b>CYCLE START</b>. Depois use <b>Próxima fase ›</b>.',6000); };
+    toast(allRef()?'<b>AUTO</b> → <b>CYCLE START</b> para ver a usinagem. Depois use <b>Próxima fase ›</b>.':'Para ver a usinagem: <b>HOME</b> → +X → CYCLE START → +Z → CYCLE START, depois <b>AUTO</b> → <b>CYCLE START</b>. Depois use <b>Próxima fase ›</b>.',6000); };
 }
 function nextLevel(){
   const lv=P.lv;
@@ -745,25 +745,16 @@ function renderHelp(){
   <div class="card"><h3>Códigos G — centro de usinagem</h3>${tbl(gRows(G_FRESA))}</div>
   <div class="card"><h3>Códigos M</h3>${tbl(Object.keys(M_CODES).map(Number).map(k=>['M'+k,`<b>${esc(M_CODES[k].n)}</b><br><span style="color:var(--muted)">${M_CODES[k].d}</span>`]))}</div>
   <div class="card"><h3>Endereços (letras)</h3>${tbl(Object.keys(ADDR).map(k=>[esc(k), esc(ADDR[k].n||('Torno: '+(ADDR[k].t||'—')+' · Fresa: '+(ADDR[k].f||'—')))]))}</div>
-  <div class="card"><h3>Painel do comando Fanuc (livro, cap. 10)</h3><ul>
-    <li><b>CYCLE START</b> — executa o programa (no MDI, um bloco por vez).</li>
-    <li><b>FEED HOLD</b> — para os eixos; o fuso continua girando.</li>
-    <li><b>RESET</b> — cancela o movimento a qualquer momento.</li>
-    <li><b>SBK (bloco a bloco)</b> — um bloco a cada Cycle Start.</li>
-    <li><b>BDT</b> — pula blocos começados com <b>/</b>.</li>
-    <li><b>DRN (dry run)</b> — ignora o F, roda em vazio.</li>
-    <li><b>MDI</b> — digita um bloco e executa na hora (ex.: T0101 para trocar).</li>
-    <li>Override de avanço 0–150 %, de rotação 50–120 %.</li></ul></div>
-  <div class="card wide"><h3>Preparar a máquina — o mesmo procedimento do SSCNC (Fanuc 0i)</h3><ol>
-    <li><b>Peça bruta</b> e <b>Ferramentas</b>: dimensões do material e ferramentas montadas (T0303 = posição 03 da torre).</li>
-    <li>Modo <b>REF</b> → aperte <b>+X</b> e <b>+Z</b> (fresa: <b>+X +Y +Z</b>): as luzes REF acendem. Sem isso o CYCLE START dá <b>ALM 224</b>.</li>
-    <li><b>Torno — Z:</b> modo <b>JOG</b>, fuso <b>CW</b>, encoste a ferramenta e faceie um pouco (INC / HNDL para chegar devagar). <b>OFFSET → GEOM</b>, cursor na linha da ferramenta, digite <b>Z0</b> → <b>(OPRT)</b> → <b>MEASURE</b>.</li>
-    <li><b>Torno — X:</b> corte de teste no diâmetro, afaste em Z (sem mexer em X), pare o fuso e meça com o <b>Paquímetro</b>. Digite <b>X</b> + o valor medido → <b>MEASURE</b>. Repita para cada ferramenta (cada uma tem a sua linha).</li>
-    <li><b>Fresa — zero-peça:</b> encoste a lateral com o calibrador (folga <b>APROPRIADO</b>). <b>OFFSET → WORK</b>, cursor em G54: digite <b>X</b> = −(raio + calibrador), ex.: <b>X-6</b> → <b>MEASURE</b>. Idem <b>Y</b>. No topo digite <b>Z1</b> (a folga do calibrador) → <b>MEASURE</b>.</li>
-    <li><b>Fresa — ferramentas:</b> em <b>OFFSET</b>, o raio vai em <b>D</b> (digite <b>D5.</b> → <b>INPUT</b>) e o comprimento em <b>H</b> (toque o topo, <b>Z1</b> → <b>MEASURE</b>; use <b>G43 H</b> no programa).</li>
-    <li>Modo <b>MEM</b> → <b>CYCLE START</b>. Na primeira vez use <b>SBK</b> (bloco a bloco). <b>MDI</b>: digite um bloco (ex.: <b>T0404</b>), <b>INSERT</b>, <b>CYCLE START</b>.</li>
-    <li>Corretor zerado ou errado = a ferramenta trabalha fora do lugar (foi o que aconteceu com a broca e o bedame do O7046). O simulador avisa: <i>FORA DO LUGAR</i>, <i>NADA FOI USINADO</i>.</li></ol>
-    <p>Com pressa: <b>Ferramentas → Preparar máquina (atalho)</b> faz tudo isso de uma vez.</p></div>
+  <div class="card"><h3>Teclas do painel (Romi G260 no SSCNC)</h3><ul>
+    <li><b>CYCLE START</b> — executa o programa (no MDI, um bloco por vez; em HOME, referencia o eixo escolhido).</li>
+    <li><b>CYCLE STOP</b> — para os eixos; <b>RESET</b> cancela tudo.</li>
+    <li><b>SINGL BLOCK</b> — um bloco a cada Cycle Start. <b>BLOCK DELET</b> — pula blocos com <b>/</b>. <b>OPT STOP</b> — para no M1.</li>
+    <li><b>DRY RUN</b> — avanços rápidos, sem peça. <b>PROG TEST</b> — roda sem girar o fuso.</li>
+    <li><b>JOG</b> + <b>+X −X +Z −Z</b> (<b>TRVS</b> = rápido). <b>MPG X1/X10/X100</b> = manivela de 0,001 / 0,01 / 0,1 mm por pulso; o eixo é escolhido com +X/−X/+Z/−Z.</li>
+    <li><b>JOG TURRET</b> + <b>TURRET POS</b> — gira a torre. <b>SPDL CW/STOP</b>, <b>CLNT ON/OFF/AUTO</b>.</li>
+    <li>Botões giratórios: rotação do fuso 50–120 %, avanço 0–120 %.</li></ul></div>
+  <div class="card wide"><h3>Passo a passo no painel do SSCNC — torno Romi G260 (Fanuc 0i)</h3>${window.procHtml('torno')}<p>Com pressa: <b>Ferramentas → Preparar máquina (atalho)</b> faz os passos 2 a 6 de uma vez.</p></div>
+  <div class="card wide"><h3>Passo a passo — centro de usinagem (Fanuc 0i)</h3>${window.procHtml('fresa')}</div>
   <div class="card"><h3>Fórmulas</h3><ul>
     <li>Rotação: <b>N = Vc × 1000 ÷ (π × D)</b></li><li>Velocidade de corte: <b>Vc = π × D × N ÷ 1000</b></li>
     <li>Avanço da fresa: <b>Vf = fz × z × rpm</b></li><li>Macho (G84): <b>F = rpm × passo</b></li>
@@ -924,7 +915,7 @@ const TUT=[
  {sel:'#simPanel .mview', txt:()=>'Este é o <b>simulador</b>, montado igual ao <b>SSCNC</b> da escola (Fanuc 0i): aqui a máquina e a peça em <b>3D</b> — ela é usinada de verdade pelo seu código. Em <b>Peça bruta</b> você muda as dimensões do material; em <b>Ferramentas</b> monta a '+(TUTM().fresa?'magazine (fresa de topo, broca, macho, escareador…).':'torre (desbaste, acabamento, bedame, broca, rosca…).')},
  {sel:'#simPanel .ss-unit', txt:'A <b>tela do comando</b>, com as <b>softkeys</b> embaixo dela. As teclas <b>POS</b>, <b>PROG</b>, <b>OFFSET/SETTING</b> e <b>MESSAGE</b> (no teclado MDI) trocam a página: posição dos eixos, programa rodando, <b>corretores e zero-peça</b> e alarmes. Tudo que você digita no teclado aparece na linha <b>&gt;</b> (o buffer) antes de apertar INPUT, INSERT ou ALTER.'},
  {sel:'#kbd', txt:'O <b>teclado MDI</b>: letras e números (SHIFT troca para a letra pequena de cada tecla), <b>EOB</b> = fim de bloco, <b>CAN</b> apaga, <b>INPUT</b> grava valores nos corretores, <b>ALTER / INSERT / DELETE</b> editam o programa no modo EDIT (ou o bloco no MDI), as setas movem o cursor.'},
- {sel:'#opPanel', txt:()=>'O <b>painel de operação</b> — o mesmo procedimento do simulador: <b>1)</b> modo <b>REF</b> e aperte '+(TUTM().fresa?'<b>+X</b>, <b>+Y</b> e <b>+Z</b>':'<b>+X</b> e <b>+Z</b>')+' (as luzes REF acendem); <b>2)</b> meça o zero-peça e as ferramentas na página <b>OFFSET</b> com <b>JOG / INC / HNDL</b> e <b>MEASURE</b> (o botão <b>HELP</b> mostra o passo a passo; ou use o atalho <b>Ferramentas → Preparar máquina</b>); <b>3)</b> modo <b>MEM</b> e <b>CYCLE START</b>. No <b>MDI</b> você digita um bloco solto (ex.: T0101).'},
+ {sel:'#opPanel', txt:()=>'O <b>painel de operação</b> é o do torno Romi G260 do SSCNC. Sequência: <b>1)</b> <b>CNC ON</b>, solte a emergência, feche a porta, <b>MACHINE ON</b>, <b>RESET</b>; <b>2)</b> <b>HOME</b> e, para cada eixo ('+(TUTM().fresa?'<b>+X</b>, <b>+Y</b>, <b>+Z</b>':'<b>+X</b> e <b>+Z</b>')+'), escolha o eixo e aperte <b>CYCLE START</b>; <b>3)</b> meça ferramentas e zero-peça em <b>OFS/SET → CORRET → GEOM / TRAB</b> usando <b>JOG</b> e <b>MPG</b> (o botão <b>HELP</b> do teclado mostra o passo a passo completo; ou use o atalho <b>Ferramentas → Preparar máquina</b>); <b>4)</b> <b>AUTO</b> e <b>CYCLE START</b>. No <b>MDI</b> você digita um bloco solto (ex.: T0101).'},
  {sel:'#progTable', txt:'Aqui está o <b>programa</b>. Cada linha é um <b>bloco</b>. Linhas cinza já vêm prontas; nas que têm campo, <b>você escreve o código</b>. A coluna do meio diz o que o bloco tem que fazer.'},
  {sel:'#progTable tr[data-r="1"]', txt:()=>'Clique numa linha e a tela do comando mostra como a máquina fica <b>depois</b> daquele bloco. '+TUTM().row1},
  {sel:'#progTable tr[data-r="2"]', gate:true, check:()=>{

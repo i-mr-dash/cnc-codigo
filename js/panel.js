@@ -97,7 +97,8 @@ const MACH = {
   tool:{torno:1, fresa:1}, offIdx:0, wcs:54, hlen:false, hidx:null, didx:null, pendT:null,
   spin:5, cool:false, emg:false, axis:'X', rapid:false, incIdx:1, jogOvr:20, spinOvr:100,
   mdi:[], relOrigin:{torno:{x:0,z:0}, fresa:{x:0,y:0,z:0}}, almList:[], runRow:-1, runPos:null, feeler:{torno:0, fresa:1}, moving:false, holdMove:false,
-  bdt:false, runCarved0:0
+  bdt:false, runCarved0:0,
+  pwr:{cnc:true, mach:true, door:false, chuck:true, lock:false, quill:false}, coolAuto:true, jtArmed:false
 };
 let has3D=false;
 const mm = () => MACH.m[SIM.machine];
@@ -260,7 +261,7 @@ function ofsHtml(sub){
     th='<tr><th>Nº</th>'+cols.map(c=>`<th>${c.toUpperCase()}</th>`).join('')+'<th></th></tr>';
     for(let r=0;r<rowsN;r++){ const g=54+r, w=su.work[g];
       body+=`<tr class="${MACH.wcs===g?'act':''}"><td>G${g}</td>`+cols.map((c,ci)=>`<td class="v ${cur.row===r&&cur.col===ci?'cur':''}">${fnum(w[c])}</td>`).join('')+`<td class="dim">${MACH.wcs===g?'◀ ATIVO':''}</td></tr>`; }
-    return `<div class="ss-sub">ZERO-PEÇA (WORK)</div><table class="ss-tab">${th}${body}</table><div class="ss-hint">${T?'X em diâmetro':'X Y Z'}: toque a peça, digite o valor e use [MEASURE]</div>`;
+    return `<div class="ss-sub">ZERO-PEÇA (TRAB)</div><table class="ss-tab">${th}${body}</table><div class="ss-hint">${T?'X em diâmetro':'X Y Z'}: toque a peça, digite o valor e use [MEDIR]</div>`;
   }
   if(T){
     const tb = sub==='WEAR' ? su.wear : su.geo;
@@ -297,12 +298,16 @@ const fanucHud = () => renderCRT();    /* compatibilidade com o game.js */
 function skDefs(){
   const p=MACH.page, s=MACH.sub[p], T=SIM.machine==='torno';
   const K=(l,id)=>({l,id});
-  if(p==='POS') return [K('ABS','pos:ABS'),K('REL','pos:REL'),K('ALL','pos:ALL'), s==='REL'?K('ORIGIN','origin'):K('',''), K('','')];
+  if(p==='POS') return [K('ABS','pos:ABS'),K('REL','pos:REL'),K('TUDO','pos:ALL'), s==='REL'?K('ORIGIN','origin'):K('',''), K('','')];
   if(p==='PROG') return [K('PRGRM','prog:PRG'),K('DIR','prog:DIR'),K('CHECK','prog:CHK'),K('',''),K('','')];
   if(p==='OFS'){
-    if(MACH.oprt) return [K('NO.SRH','srh'),K('MEASURE','measure'),K('+INPUT','plus'),K('INPUT','input'),K('◀ VOLTAR','oprt0')];
-    return T ? [K('WEAR','ofs:WEAR'),K('GEOM','ofs:GEOM'),K('SETTING','ofs:SET'),K('WORK','ofs:WORK'),K('(OPRT)','oprt1')]
-             : [K('OFFSET','ofs:GEOM'),K('SETTING','ofs:SET'),K('WORK','ofs:WORK'),K('',''),K('(OPRT)','oprt1')];
+    if(MACH.oprt) return [K('BUSCA N','srh'),K('MEDIR','measure'),K('+INSER','plus'),K('INSERIR','input'),K('◀ VOLTAR','oprt0')];
+    const lv=MACH.ofsLvl||'top';
+    if(lv==='cor') return [K('◀','ofs:top'),K('DESG','ofs:WEAR'),K('GEOM','ofs:GEOM'),K('MEDIR','measure'),K('INS. C','measure')];
+    if(lv==='trab') return [K('◀','ofs:top'),K('MEDIR','measure'),K('+INSER','plus'),K('INSERIR','input'),K('(OPRT)','oprt1')];
+    if(lv==='def') return [K('◀','ofs:top'),K('',''),K('',''),K('',''),K('','')];
+    return T ? [K('CORRET','ofs:cor'),K('DEFININDO','ofs:def'),K('TRAB','ofs:trab'),K('',''),K('(OPRT)','oprt1')]
+             : [K('CORRET','ofs:cor'),K('DEFININDO','ofs:def'),K('TRAB','ofs:trab'),K('',''),K('(OPRT)','oprt1')];
   }
   if(p==='MSG') return [K('ALARM','msg:ALARM'),K('MSG','msg:MSG'),K('HISTRY','msg:HIS'),K('',''),K('','')];
   if(p==='SYS') return [K('PARAM','sys:PARAM'),K('DGNOS','sys:DGNOS'),K('SYSTEM','sys:SYS'),K('',''),K('','')];
@@ -310,12 +315,19 @@ function skDefs(){
 }
 function renderSoftkeys(){
   const d=skDefs(), act=MACH.sub[MACH.page];
-  $('#softkeys').innerHTML = d.map((k,i)=>`<button class="sk ${k.l&&(k.id==='pos:'+act||k.id==='ofs:'+act||k.id==='prog:'+act||k.id==='msg:'+act||k.id==='sys:'+act)?'on':''}" data-sk="${k.id}" ${k.id?'':'disabled'}>${k.l}</button>`).join('');
+  $('#softkeys').innerHTML = d.map((k,i)=>`<button class="sk ${k.l&&(k.id==='pos:'+act||k.id==='ofs:'+act||(k.id==='ofs:cor'&&['GEOM','WEAR'].includes(act))||(k.id==='ofs:trab'&&act==='WORK')||k.id==='prog:'+act||k.id==='msg:'+act||k.id==='sys:'+act)?'on':''}" data-sk="${k.id}" ${k.id?'':'disabled'}>${k.l}</button>`).join('');
   $$('#softkeys .sk').forEach(b=>b.onclick=()=>softKey(b.dataset.sk));
 }
 function softKey(id){
   if(!id) return; beep(700,.03,'square',.03);
   const [a,b]=id.split(':');
+  if(a==='ofs'&&['cor','top','def','trab'].includes(b)){
+    MACH.ofsLvl=b; MACH.cur={row:0,col:0};
+    if(b==='cor'&&!['GEOM','WEAR'].includes(MACH.sub.OFS)) MACH.sub.OFS='GEOM';
+    if(b==='trab') MACH.sub.OFS='WORK'; if(b==='def') MACH.sub.OFS='SET';
+    renderCRT(); return;
+  }
+  if(a==='ofs'&&(b==='GEOM'||b==='WEAR')){ MACH.sub.OFS=b; MACH.cur={row:0,col:0}; renderCRT(); return; }
   if(a==='pos'||a==='prog'||a==='ofs'||a==='msg'||a==='sys'){ MACH.sub[{pos:'POS',prog:'PROG',ofs:'OFS',msg:'MSG',sys:'SYS'}[a]]=b; MACH.cur={row:0,col:0}; renderCRT(); return; }
   if(id==='origin'){ const m=absNow(), ro=MACH.relOrigin[SIM.machine]; AXES().forEach(k=>ro[k]=m[k]); renderCRT(); return; }
   if(id==='oprt1'){ MACH.oprt=true; renderCRT(); return; }
@@ -327,6 +339,7 @@ function softKey(id){
   if(id==='graph'){ $('#tab2d').click(); return; }
 }
 function setPage(pg){
+  if(pg==='OFS'&&MACH.page!=='OFS') MACH.ofsLvl='top';
   MACH.page=pg; MACH.oprt=false; if(pg==='OFS') MACH.cur={row:Math.min(MACH.cur.row,OFS_ROWS()-1),col:0};
   $$('.fk').forEach(b=>b.classList.toggle('on', b.dataset.pg===pg));
   renderCRT();
@@ -398,22 +411,72 @@ function navKey(c){
     const n=api.count(); let r=SIM.focus<0?0:SIM.focus; r=Math.max(0,Math.min(n-1,r+dr)); api.focus(r); renderCRT();
   }
 }
+/* passo a passo dos procedimentos (pesquisado: manual Romi G260 / Fanuc 0i + SSCNC) — usado no HELP, no Manual e no tutorial */
+const K_ = t=>`<b>${t}</b>`;
+function procGroups(machine){
+  const T=machine==='torno';
+  const A=T?['+X','+Z']:['+X','+Y','+Z'];
+  const g=[];
+  g.push(['1 · Ligar a máquina', [
+    `${K_('CNC ON')} (liga o comando — a tela mostra o alarme EMG).`,
+    `Gire o cogumelo vermelho para soltar a ${K_('EMERGÊNCIA')}.`,
+    `${K_('OPEN/CLOSE DOOR')} — a porta precisa estar fechada.`,
+    `${K_('MACHINE ON')} e depois ${K_('RESET')} (limpa o alarme).`]]);
+  g.push(['2 · Referenciar os eixos (HOME)', [
+    `Tecla ${K_('HOME')}.`,
+    `Escolha o eixo com ${K_(A[0])} e aperte ${K_('CYCLE START')}; repita com ${A.slice(1).map(K_).join(' e ')}. As luzes REF acendem na tela e no painel.`,
+    `Sem isso o CYCLE START dá <b>ALM 224</b>.`]]);
+  g.push(['3 · Preparar a peça', [
+    `Botões ${K_('Peça bruta')} e ${K_('Ferramentas')} (dimensões do material e ferramentas montadas).`,
+    T?`${K_('CHUCK CLAMP')} fixa a peça na placa (sem isso o fuso não gira).`:`Fixe a peça na morsa (já está presa) e confira o calibrador.`]]);
+  if(T){
+    g.push(['4 · Zerar cada ferramenta — eixo Z', [
+      `${K_('MDI')} → ${K_('PROG')} → digite <b>T0101</b> ${K_('EOB')} ${K_('INSERT')} → ${K_('CYCLE START')} (troca a torre). Ou ${K_('JOG')} + ${K_('JOG TURRET')} + ${K_('TURRET POS')}.`,
+      `${K_('JOG')}: ${K_('SPDL CW')} (fuso girando!) e aproxime com ${K_('+X −X +Z −Z')}; ${K_('TRVS')} liga o avanço rápido e o botão ${K_('AVANÇO')} regula a velocidade. Para chegar devagar use ${K_('MPG X10')} (ou X1/X100), escolha o eixo com ${K_('+Z')}/${K_('−Z')} e gire a manivela.`,
+      `Toque a ferramenta na <b>face</b> da peça e afaste só em X.`,
+      `${K_('OFS/SET')} → ${K_('CORRET')} → ${K_('GEOM')}; cursor ↑↓ na linha da ferramenta; digite <b>Z0</b> → ${K_('INS. C')} (ou ${K_('MEDIR')}).`]]);
+    g.push(['5 · Zerar cada ferramenta — eixo X', [
+      `Com o fuso girando, faça um corte leve no diâmetro; afaste só em <b>Z</b> (não mexa em X) e dê ${K_('SPDL STOP')}.`,
+      `Meça com o ${K_('Paquímetro')} (botão no 3D).`,
+      `${K_('OFS/SET')} → ${K_('CORRET')} → ${K_('GEOM')}; cursor na ferramenta; digite <b>X</b> + diâmetro medido (ex.: <b>X48</b>) → ${K_('MEDIR')}.`,
+      `Repita os passos 4 e 5 para cada ferramenta (cada uma tem a sua linha).`]]);
+    g.push(['6 · Raio e quadrante da ferramenta', [
+      `${K_('OFS/SET')} → ${K_('CORRET')} → ${K_('GEOM')}; cursor na coluna <b>R</b> (raio da pastilha, ex.: 0.8) → digite o valor → ${K_('INPUT')}.`,
+      `Na coluna <b>T</b> digite o quadrante (3 = ferramenta externa comum) → ${K_('INPUT')}.`]]);
+    g.push(['7 · Zero-peça (G54) — opcional', [
+      `Com a ferramenta de referência tocando a face: ${K_('OFS/SET')} → ${K_('TRAB')}; cursor em <b>Z</b> do G54; digite <b>Z0</b> → ${K_('MEDIR')}.`,
+      `Para zero-peça no fundo digite o comprimento (ex.: <b>Z80</b>). Corrigir: digite o valor (ex.: <b>0.5</b>) → ${K_('+INSER')}.`]]);
+  }else{
+    g.push(['4 · Zero-peça (G54) — X, Y e Z', [
+      `${K_('JOG')}: ${K_('SPDL CW')}, aproxime com ${K_('+X −X +Y −Y +Z −Z')} (${K_('TRVS')} = rápido) e termine em ${K_('MPG X10')} escolhendo o eixo.`,
+      `Encoste a lateral da peça com o calibrador (folga <b>APROPRIADO</b> no 3D).`,
+      `${K_('OFS/SET')} → ${K_('TRAB')}; cursor no G54; digite <b>X</b> = −(raio + calibrador), ex.: <b>X-6</b> → ${K_('MEDIR')}. Idem <b>Y</b>.`,
+      `No topo da peça: digite <b>Z1</b> (a folga do calibrador) → ${K_('MEDIR')}.`]]);
+    g.push(['5 · Comprimento (H) e raio (D) de cada ferramenta', [
+      `${K_('OFS/SET')} → ${K_('CORRET')}; cursor na linha da ferramenta.`,
+      `Raio: digite <b>D5.</b> (raio da fresa) → ${K_('INPUT')}. Comprimento: toque o topo, digite <b>Z1</b> → ${K_('MEDIR')} na coluna <b>H</b> (no programa use <b>G43 H</b>).`]]);
+  }
+  g.push(['8 · Testar o programa', [
+    `${K_('EDIT')} → ${K_('PROG')}: digite/ajuste o programa (cursor, ${K_('ALTER')}, ${K_('INSERT')}, ${K_('DELETE')}).`,
+    `${K_('AUTO')} → ${K_('PROG TEST')} → ${K_('RESET')} → ${K_('CYCLE START')} (roda sem girar o fuso). Desligue o PROG TEST ao terminar.`,
+    `Mais seguro: ${K_('DRY RUN')} + ${K_('SINGL BLOCK')} e ${K_('CYCLE START')} a cada linha (sem peça na placa).`,
+    `Teste sem rotação: ponha <b>/</b> antes dos blocos com M3/M4 e use ${K_('BLOCK DELET')}.`]]);
+  g.push(['9 · Executar a usinagem', [
+    `${K_('AUTO')} → ${K_('PROG')} → ${K_('RESET')} → ${K_('CYCLE START')}. Na primeira vez use ${K_('SINGL BLOCK')}.`,
+    `${K_('CYCLE STOP')} para os eixos; ${K_('RESET')} aborta. ${K_('OPT STOP')} para no M1. ${K_('CLNT AUTO')} deixa o refrigerante por conta do M8/M9.`]]);
+  g.push(['10 · Corrigir o desgaste depois de medir a peça', [
+    `${K_('OFS/SET')} → ${K_('CORRET')} → ${K_('DESG')}; cursor na ferramenta e eixo; digite o valor (ex.: <b>0.05</b> ou <b>-0.05</b>) → ${K_('+INSER')}.`]]);
+  return g;
+}
+function procHtml(machine){
+  return procGroups(machine).map(([t,l])=>`<h4 style="margin:10px 0 4px">${t}</h4><ol>${l.map(x=>`<li>${x}</li>`).join('')}</ol>`).join('');
+}
+window.procHtml=procHtml;
 function showHelp(){
   const m=SIM.machine==='torno';
-  const steps = m
-   ? ['<b>1.</b> Modo <b>REF</b> → aperte <b>+X</b> e <b>+Z</b> (as luzes REF acendem).',
-      '<b>2.</b> <b>JOG</b>: ligue o fuso (<b>CW</b>) e encoste a ferramenta na face; modo <b>INC/HNDL</b> para chegar devagar.',
-      '<b>3.</b> <b>OFFSET</b> → <b>GEOM</b> → cursor na linha da ferramenta → digite <b>Z0</b> → <b>(OPRT)</b> → <b>MEASURE</b>.',
-      '<b>4.</b> Faça um corte de teste no diâmetro, meça com o <b>Paquímetro</b>, digite <b>X</b>+valor → <b>MEASURE</b>.',
-      '<b>5.</b> Modo <b>MEM</b> → <b>CYCLE START</b>.']
-   : ['<b>1.</b> Modo <b>REF</b> → <b>+X</b> <b>+Y</b> <b>+Z</b>.',
-      '<b>2.</b> <b>JOG</b>/<b>INC</b>/<b>HNDL</b>: encoste a ferramenta na lateral da peça com o calibrador (folga ideal = <b>APROPRIADO</b>).',
-      '<b>3.</b> <b>OFFSET</b> → <b>WORK</b> → cursor em G54 → digite <b>X</b>(−raio−calibrador) → <b>(OPRT)</b> → <b>MEASURE</b>. Idem para <b>Y</b>.',
-      '<b>4.</b> Z: encoste no topo, digite <b>Z</b>(calibrador) → <b>MEASURE</b> (G54 Z). Outras ferramentas: <b>H</b> em OFFSET.',
-      '<b>5.</b> Digite <b>D</b>(raio) em OFFSET → <b>INPUT</b>. Modo <b>MEM</b> → <b>CYCLE START</b>.'];
-  $('#unTitle').textContent='Ajuda — preparar a máquina';
+  $('#unTitle').textContent='Ajuda — passo a passo (SSCNC / '+(m?'Romi G260':'Fanuc 0i')+')';
   $('#modalUnlock').classList.remove('finish');
-  $('#unBody').innerHTML=`<div class="exrow">${steps.join('<br>')}</div><div class="exrow">Pressa? Em <b>Ferramentas</b> há o atalho <b>Preparar máquina</b>, que faz tudo isso de uma vez.</div>`;
+  $('#unBody').innerHTML=`<div class="exrow" style="max-height:60vh;overflow:auto">${procHtml(SIM.machine)}</div><div class="exrow">Pressa? Em <b>Ferramentas</b> há o atalho <b>Preparar máquina</b>, que faz os passos 2 a 6 de uma vez.</div>`;
   $('#unClose').textContent='Fechar'; $('#unClose').onclick=()=>closeModal('#modalUnlock'); openModal('#modalUnlock');
 }
 
@@ -437,9 +500,9 @@ function ofsInput(add){
   bufEl().value=''; beep(1000,.05); renderCRT();
 }
 function ofsMeasure(){
-  const s=MACH.sub.OFS; if(MACH.page!=='OFS'||(s!=='GEOM'&&s!=='WORK')){ toast('[MEASURE] funciona nas páginas <b>GEOM</b> (corretor) e <b>WORK</b> (zero-peça).'); return; }
+  const s=MACH.sub.OFS; if(MACH.page!=='OFS'||(s!=='GEOM'&&s!=='WORK')){ toast('[MEDIR] funciona nas páginas <b>GEOM</b> (corretor) e <b>TRAB</b> (zero-peça).'); return; }
   const pa=parseAddr(bufEl().value);
-  if(!pa||!pa.a){ toast('Digite o eixo e o valor da posição onde a ferramenta está (ex.: <b>Z0</b>) e use [MEASURE].'); return; }
+  if(!pa||!pa.a){ toast('Digite o eixo e o valor da posição onde a ferramenta está (ex.: <b>Z0</b>) e use [MEDIR].'); return; }
   const axis=pa.a.toLowerCase(), T=SIM.machine==='torno';
   if(!AXES().includes(axis)){ toast(`Eixo <b>${pa.a}</b> não existe nesta máquina.`); return; }
   const su=setup(), m=mm(), W=su.work[MACH.wcs]||su.work[54], {tbl,rk}=ofsTable();
@@ -496,7 +559,7 @@ function progEdit(op){
 const MODES=['EDIT','MEM','MDI','JOG','INC','HND','REF'];
 function setMode(m){
   MACH.mode=m; jogH=null;
-  $$('#opPanel [data-mode]').forEach(k=>{ const on=k.dataset.mode===m; k.classList.toggle('on',on); k.setAttribute('aria-pressed',on); });
+  $$('#opPanel [data-mode]').forEach(k=>{ let on=k.dataset.mode===m; if(on&&k.dataset.inc!==undefined) on=(+k.dataset.inc===MACH.incIdx); k.classList.toggle('on',on); k.setAttribute('aria-pressed',on); });
   MODES.forEach(x=>$('#simPanel').classList.toggle('m-'+x, x===m));
   $('#crtMode').textContent = {HND:'HND',INC:'INC',REF:'ZRN'}[m]||m;
   // preparar a máquina (JOG/INC/HNDL/MDI/REF) trabalha na BARRA BRUTA; EDIT/MEM mostram a prévia do programa
@@ -505,12 +568,14 @@ function setMode(m){
     if(machMode && MACH.view!=='stock'){ Sim3D.resetStock(); MACH.view='stock'; MACH.afterRun=false; MACH.runState=null; syncTool(); }
     else if(!machMode && MACH.view==='stock' && !MACH.afterRun){ rerunCurrent(); }
   }
+  selectAxis(MACH.axis.toLowerCase()); coolLamps(); pwrLamps();
   if(m==='MDI'||m==='EDIT') setPage('PROG'); else renderCRT();
   if(m==='MDI') setTimeout(()=>{ try{ bufEl().focus({preventScroll:true}); }catch(e){} },30);
 }
 $$('#opPanel [data-mode]').forEach(k=>k.onclick=()=>{
-  if(Sim3D.running()||MACH.moving){ toast('Programa rodando: aperte <b>FEED HOLD</b> ou <b>RESET</b> antes de mudar o modo.'); return; }
-  beep(560,.04,'square',.04); setMode(k.dataset.mode); });
+  if(Sim3D.running()||MACH.moving){ toast('Programa rodando: aperte <b>CYCLE STOP</b> ou <b>RESET</b> antes de mudar o modo.'); return; }
+  if(k.dataset.inc!==undefined) MACH.incIdx=+k.dataset.inc;
+  beep(560,.04,'square',.04); setMode(k.dataset.mode); if(k.dataset.mode==='REF') toast('<b>HOME</b>: escolha o eixo (+X / +Z) e aperte <b>CYCLE START</b> uma vez para cada eixo.',4200); });
 
 let hudQ=0; const schedHud=()=>{ if(!hudQ) hudQ=requestAnimationFrame(()=>{ hudQ=0; renderCRT(); }); };
 function addAlarm(msg,row){ if(!MACH.almList.some(a=>a.msg===msg&&a.row===row)){ MACH.almList.push({msg,row:row??null}); $('#crtAlm').textContent='ALM'; sndErr(); if(MACH.page==='MSG') renderCRT(); } }
@@ -574,38 +639,49 @@ function animateTo(target, speed, rapid){      // target parcial em coordenadas 
 /* ---------- eixos: JOG contínuo, INC por passo, HNDL (manivela), REF ---------- */
 let jogH=null;
 const INC_STEPS=[0.001,0.01,0.1,1];
+let axBound=false;
+function selectAxis(axis){
+  MACH.axis=axis.toUpperCase();
+  $$('#opPanel [data-ax]').forEach(b=>b.classList.toggle('on', b.dataset.ax.split(':')[0]===axis.toLowerCase() && ['REF','HND'].includes(MACH.mode)));
+  updateGap();
+}
 function buildAxisKeys(){
   const T=SIM.machine==='torno', axes=AXES();
-  $('#axisKeys').innerHTML = axes.map(a=>{ const A=a.toUpperCase();
-    return `<span class="axpair"><button class="ssk ax" data-jog="${a}:-1" aria-label="Eixo ${A} negativo">−${A}</button><button class="ssk ax" data-jog="${a}:1" aria-label="Eixo ${A} positivo">+${A}</button></span>`; }).join('')+
-    `<button class="ssk tg" id="kRapid" aria-pressed="${MACH.rapid}">RAPID</button>`;
-  $$('#axisKeys [data-jog]').forEach(b=>{
-    const [a,d]=b.dataset.jog.split(':'), dir=+d;
-    b.addEventListener('pointerdown',e=>{ e.preventDefault(); b.setPointerCapture&&b.setPointerCapture(e.pointerId); jogStart(a,dir); });
-    const up=()=>jogStop(); b.addEventListener('pointerup',up); b.addEventListener('pointercancel',up); b.addEventListener('lostpointercapture',up);
-    b.addEventListener('click',e=>{ if(e.detail===0){ jogStart(a,dir); setTimeout(jogStop,120); } });   // teclado / leitor de tela (o mouse já agiu no pointerdown)
-  });
-  $('#kRapid').onclick=()=>{ MACH.rapid=!MACH.rapid; $('#kRapid').setAttribute('aria-pressed',MACH.rapid); };
-  $('#hAxis').innerHTML = axes.map(a=>`<button class="ssk ${MACH.axis.toLowerCase()===a?'on':''}" data-hax="${a}">${a.toUpperCase()}</button>`).join('');
-  $$('#hAxis [data-hax]').forEach(b=>b.onclick=()=>{ MACH.axis=b.dataset.hax.toUpperCase(); $$('#hAxis [data-hax]').forEach(x=>x.classList.toggle('on',x===b)); updateGap(); });
+  $('#roY').hidden=T;
+  if(!axBound){ axBound=true;
+    $$('#opPanel [data-ax]').forEach(b=>{
+      const [a,d]=b.dataset.ax.split(':'), dir=+d;
+      b.addEventListener('pointerdown',e=>{ e.preventDefault(); b.setPointerCapture&&b.setPointerCapture(e.pointerId); jogStart(a,dir); });
+      const up=()=>jogStop(); b.addEventListener('pointerup',up); b.addEventListener('pointercancel',up); b.addEventListener('lostpointercapture',up);
+      b.addEventListener('click',e=>{ if(e.detail===0){ jogStart(a,dir); setTimeout(jogStop,120); } });
+    });
+    $('#kRapid').onclick=()=>{ MACH.rapid=!MACH.rapid; $('#kRapid').setAttribute('aria-pressed',MACH.rapid); };
+  }
   if(!axes.includes(MACH.axis.toLowerCase())) MACH.axis='X';
   renderRefLamps();
-  $('#mTitle').textContent = T?'TORNO · FANUC 0i':'FRESA · FANUC 0i';
+  $('#mTitle').textContent = T?'TORNO · FANUC 0i Mate-TB (Romi G260)':'FRESA · FANUC 0i-MD';
 }
 function renderRefLamps(){
   const r=refOf(); $('#refLamps').innerHTML=Object.keys(r).map(a=>`<span class="${r[a]?'on':''}" title="Retorno à referência ${a}">REF ${a}</span>`).join('');
 }
+function powerOk(){
+  if(!MACH.pwr.cnc){ toast('O CNC está desligado: aperte <b>CNC ON</b>.'); return false; }
+  if(!MACH.pwr.mach){ toast('Máquina desligada: solte a emergência, feche a porta e aperte <b>MACHINE ON</b> (depois <b>RESET</b>).',4600); return false; }
+  return true;
+}
 function guardMove(){
+  if(!powerOk()) return true;
   if(MACH.emg){ toast('EMERGÊNCIA acionada — solte o botão vermelho primeiro.'); return true; }
-  if(Sim3D.running()||MACH.moving){ toast('A máquina está em movimento — use FEED HOLD ou RESET.'); return true; }
+  if(Sim3D.running()||MACH.moving){ toast('A máquina está em movimento — use CYCLE STOP ou RESET.'); return true; }
   return false;
 }
 function jogStart(axis,dir){
   const mode=MACH.mode;
-  MACH.axis=axis.toUpperCase(); $$('#hAxis [data-hax]').forEach(x=>x.classList.toggle('on',x.dataset.hax===axis));
-  if(mode==='REF'){ refAxis(axis,dir); return; }
+  if(mode==='REF'){ selectAxis(axis); return; }
+  if(mode==='HND'){ selectAxis(axis); return; }
+  MACH.axis=axis.toUpperCase();
   if(mode==='INC'){ if(guardMove()) return; stepAxis(axis, dir*INC_STEPS[MACH.incIdx], false); return; }
-  if(mode!=='JOG'){ toast('Para mover os eixos selecione <b>JOG</b> (contínuo), <b>INC</b> (passo) ou <b>HNDL</b> (manivela).'); return; }
+  if(mode!=='JOG'){ toast('Para mover os eixos selecione <b>JOG</b> (contínuo, com +X −X +Z −Z) ou <b>MPG</b> (manivela).'); return; }
   if(guardMove()) return;
   jogH={axis,dir,last:performance.now()}; requestAnimationFrame(jogLoop);
 }
@@ -622,17 +698,22 @@ function stepAxis(axis,d,rapid){       // d = deslocamento da ponta (no torno X:
   return moveMachine(to,rapid);
 }
 function pulse(n){
-  if(MACH.mode!=='HND'){ toast('Selecione o modo <b>HNDL</b> para usar a manivela.'); return; }
+  if(MACH.mode!=='HND'){ toast('Selecione <b>MPG X1/X10/X100</b>, escolha o eixo com +X/−X/+Z/−Z e gire a manivela.'); return; }
   if(guardMove()) return;
   stepAxis(MACH.axis.toLowerCase(), n*INC_STEPS[Math.min(MACH.incIdx,2)], false);
 }
+function refCycle(){
+  const r=refOf(), pend=Object.keys(r).filter(a=>!r[a]);
+  if(!pend.length){ toast('Todos os eixos já estão no ponto de referência.'); return; }
+  let A=(MACH.axis||'X').toUpperCase(); if(r[A]||!(A in r)) A=pend[0];
+  selectAxis(A.toLowerCase()); refAxis(A.toLowerCase(),1);
+}
 function refAxis(axis,dir){
   if(MACH.emg){ toast('Solte a EMERGÊNCIA primeiro.'); return; }
-  if(dir<0){ toast('No modo <b>REF</b> use as teclas <b>+</b> (sentido positivo) para ir ao ponto de referência.'); return; }
   const A=axis.toUpperCase(); if(MACH.moving) return;
   if(refOf()[A]){ toast(`Eixo ${A} já está no ponto de referência.`); return; }
-  animateTo({[axis]:0}, 90, true).then(ok=>{ if(!ok) return; refOf()[A]=true; beep(980,.08); renderCRT();
-    if(allRef()) toast('Máquina referenciada ✓ — próximo passo: medir o zero-peça e as ferramentas (OFFSET), ou use o atalho em <b>Ferramentas</b>.',4800); });
+  animateTo({[axis]:0}, 90, true).then(ok=>{ if(!ok) return; refOf()[A]=true; beep(980,.08); renderCRT(); renderRefLamps(); const nx=Object.keys(refOf()).find(k=>!refOf()[k]); if(nx) selectAxis(nx.toLowerCase());
+    if(allRef()) toast('Máquina referenciada ✓ — próximo passo: geometria das ferramentas (OFS/SET → CORRET → GEOM) e zero-peça (TRAB).',4800); });
 }
 /* manivela (dial) */
 (function(){
@@ -649,24 +730,67 @@ $$('#incRow [data-inc]').forEach(b=>b.onclick=()=>{ MACH.incIdx=+b.dataset.inc; 
 
 /* ---------- fuso, refrigeração, torre ---------- */
 function manualSpin(sp){
-  if(['EDIT','MEM'].includes(MACH.mode)){ toast('O fuso manual funciona em <b>JOG</b>, <b>INC</b>, <b>HNDL</b> ou <b>MDI</b> (M3 S500).'); return; }
-  if(MACH.emg) return;
-  MACH.spin=sp; Sim3D.setSpin({spin:sp, cool:MACH.cool}); renderCRT();
+  if(['EDIT','MEM'].includes(MACH.mode)){ toast('O fuso manual funciona em <b>JOG</b>, <b>MPG</b> ou <b>MDI</b> (M3 S500).'); return; }
+  if(MACH.emg||!powerOk()) return;
+  if(sp!==5){
+    if(MACH.pwr.door){ toast('Porta aberta: feche com <b>OPEN/CLOSE DOOR</b> antes de ligar o fuso.'); return; }
+    if(!MACH.pwr.chuck){ toast('Placa solta: aperte <b>CHUCK CLAMP</b> para fixar a peça antes de girar.'); return; }
+  }
+  MACH.spin=sp; Sim3D.setSpin({spin:sp, cool:MACH.cool}); renderCRT(); coolLamps();
 }
-$('#kCW').onclick=()=>manualSpin(3); $('#kCCW').onclick=()=>manualSpin(4); $('#kStop').onclick=()=>manualSpin(5);
-$('#kCool').onclick=()=>{ MACH.cool=!MACH.cool; $('#kCool').classList.toggle('lit',MACH.cool); Sim3D.setSpin({spin:MACH.spin, cool:MACH.cool}); renderCRT(); };
-$('#kTurret').onclick=()=>{
+function coolLamps(){
+  $('#kClOn').classList.toggle('on',MACH.cool&&!MACH.coolAuto); $('#kClOff').classList.toggle('on',!MACH.cool&&!MACH.coolAuto); $('#kClAuto').classList.toggle('on',MACH.coolAuto);
+  $('#kCW').classList.toggle('on',MACH.spin===3||MACH.spin===4); $('#kStop').classList.toggle('on',MACH.spin===5);
+}
+$('#kCW').onclick=()=>manualSpin(3); $('#kStop').onclick=()=>manualSpin(5);
+const setCool=(on,auto)=>{ MACH.coolAuto=auto; if(on!==null) MACH.cool=on; Sim3D.setSpin({spin:MACH.spin, cool:MACH.cool}); coolLamps(); renderCRT(); };
+$('#kClOn').onclick=()=>setCool(true,false); $('#kClOff').onclick=()=>setCool(false,false); $('#kClAuto').onclick=()=>setCool(null,true);
+$('#kJT').onclick=()=>{ MACH.jtArmed=!MACH.jtArmed; $('#kJT').setAttribute('aria-pressed',MACH.jtArmed); if(MACH.jtArmed) toast('<b>JOG TURRET</b> armado — aperte <b>TURRET POS</b> para girar a torre (no SSCNC as duas teclas juntas).',3800); };
+$('#kTP').onclick=()=>{
   if(SIM.machine!=='torno'){ toast('No centro de usinagem a troca é por programa/MDI: <b>T02 M6</b>.'); return; }
-  if(!['JOG','INC','HND'].includes(MACH.mode)){ toast('A torre gira à mão nos modos <b>JOG/INC/HNDL</b> (ou por MDI: T0202).'); return; }
+  if(!MACH.jtArmed){ toast('Segure <b>JOG TURRET</b> junto com <b>TURRET POS</b> (aqui: arme o JOG TURRET e depois aperte TURRET POS).',4200); return; }
+  if(!['JOG','HND'].includes(MACH.mode)){ toast('A torre gira à mão no modo <b>JOG</b> (ou por MDI: T0202).'); return; }
   if(guardMove()) return;
   MACH.tool.torno=MACH.tool.torno%8+1; syncTool(); renderCRT();
   const t=(SIM.tools||{})[pad2(MACH.tool.torno)], T=t&&TOOL_TYPES.torno[t.type];
   toast(`Torre → posição <b>${pad2(MACH.tool.torno)}</b>: ${T?T.n:'vazia'}`,2200);
 };
+const info=(id,msg)=>{ $(id).onclick=()=>toast(msg,3200); };
+info('#kWash','WASH GUN (pistola de lavagem): não é usada nos exercícios.');
+info('#kOkOp','OK OPERATOR: botão de confirmação do operador — sem função aqui.');
+info('#kRestrt','PROG RESTRT (reinício do programa): não é usado nos exercícios.');
+info('#kChipSt','CHIP C STOP/RW: parar/reverter o transportador de cavacos — sem função aqui.');
+$('#kChipFw').onclick=()=>{ const on=$('#kChipFw').getAttribute('aria-pressed')!=='true'; $('#kChipFw').setAttribute('aria-pressed',on); };
+function pwrLamps(){
+  const P=MACH.pwr; $('#pwCnc').classList.toggle('on',P.cnc); $('#pwMach').classList.toggle('on',P.cnc&&P.mach); $('#pwDoor').classList.toggle('on',P.door);
+  $('#kChuck').classList.toggle('on',P.chuck); $('#kQuill').classList.toggle('on',P.quill); $('#pwLock').classList.toggle('on',P.lock);
+  $('#simPanel').classList.toggle('ss-off',!P.cnc);
+}
+function powerCut(){ animCancel++; MACH.moving=false; MACH.holdMove=false; jogH=null; Sim3D.stop(); markRun(-1); MACH.spin=5; MACH.cool=false; Sim3D.setSpin({spin:5,cool:false});
+  $('#opStart').classList.remove('lit'); $('#opHold').classList.remove('lit'); $('#crtRun').textContent='****'; coolLamps(); }
+$('#pwCnc').onclick=()=>{
+  const P=MACH.pwr;
+  if(P.cnc){ P.cnc=false; P.mach=false; powerCut(); Object.keys(refOf()).forEach(a=>refOf()[a]=false); renderRefLamps(); pwrLamps(); toast('CNC desligado.'); return; }
+  P.cnc=true; P.mach=false; pwrLamps(); renderCRT();
+  machineAlarm('EMG — máquina desligada. Solte a emergência, feche a porta, aperte MACHINE ON e depois RESET.');
+};
+$('#pwMach').onclick=()=>{
+  const P=MACH.pwr;
+  if(!P.cnc){ toast('Primeiro ligue o comando: <b>CNC ON</b>.'); return; }
+  if(MACH.emg){ toast('Solte o botão de <b>EMERGÊNCIA</b> primeiro.'); return; }
+  if(P.door){ toast('Feche a porta (<b>OPEN/CLOSE DOOR</b>) antes de ligar a máquina.'); return; }
+  P.mach=true; pwrLamps(); beep(700,.06); toast('Máquina ligada. Aperte <b>RESET</b> para limpar o alarme e depois faça o <b>HOME</b>.',4200);
+};
+$('#pwDoor').onclick=()=>{ MACH.pwr.door=!MACH.pwr.door; if(MACH.pwr.door){ if(Sim3D.running()||MACH.spin!==5){ powerCut(); machineAlarm('PORTA ABERTA durante o ciclo — fuso e eixos parados.'); } } pwrLamps(); };
+$('#kChuck').onclick=()=>{ if(MACH.pwr.chuck&&MACH.spin!==5){ toast('Pare o fuso (<b>SPDL STOP</b>) antes de soltar a placa.'); return; } MACH.pwr.chuck=!MACH.pwr.chuck; pwrLamps(); toast(MACH.pwr.chuck?'Placa fixada (CHUCK CLAMP).':'Placa solta (CHUCK UNCLAMP): troque/posicione a peça.'); };
+$('#kQuill').onclick=()=>{ MACH.pwr.quill=!MACH.pwr.quill; pwrLamps(); };
+$('#pwLock').onclick=()=>{ MACH.pwr.lock=!MACH.pwr.lock; pwrLamps(); toast(MACH.pwr.lock?'Chave em <b>LOCK</b>: edição de programas/corretores bloqueada no equipamento real.':'Chave em <b>SETUP</b>: edição liberada.'); };
 /* opções */
 const tg=(id,fn)=>{ $(id).onclick=()=>{ const on=$(id).getAttribute('aria-pressed')!=='true'; $(id).setAttribute('aria-pressed',on); fn(on); }; };
 tg('#kSBK', on=>Sim3D.setOpts({single:on}));
-tg('#kDRN', on=>Sim3D.setOpts({dry:on}));
+const syncDry=()=>Sim3D.setOpts({dry:$('#kDRN').getAttribute('aria-pressed')==='true'||$('#kPT').getAttribute('aria-pressed')==='true'});
+tg('#kDRN', syncDry);
+tg('#kPT', on=>{ syncDry(); if(on) toast('<b>PROG TEST</b>: roda o programa sem girar o fuso e mais rápido. Desligue depois do teste.',3600); });
 tg('#kOPT', on=>Sim3D.setOpts({optStop:on}));
 tg('#kBDT', on=>{ MACH.bdt=on; rerunCurrent(); });
 /* overrides: − valor + */
@@ -678,23 +802,27 @@ function stepper(id, list, init, on){
   upd();
 }
 function buildOverrides(){
-  stepper('#ovFeed',[0,10,20,30,50,70,100,120,150],100,(v,init)=>{ Sim3D.setOpts({feedOvr:Math.max(0.02,v/100)}); });
+  stepper('#ovFeed',[0,1,2,4,6,8,10,15,20,30,40,50,60,70,80,90,95,100,105,110,120],100,(v,init)=>{ Sim3D.setOpts({feedOvr:Math.max(0.02,v/100)}); MACH.jogOvr=Math.max(0.2,v*0.2); });
   stepper('#ovRapid',[5,25,50,100],100,(v,init)=>{ $('#ovRapidV').dataset.v=v/100; Sim3D.setOpts({rapidOvr:Math.max(0.02,v/100)}); });
-  stepper('#ovJog',[1,2,5,10,20,50,100],20,(v)=>{ MACH.jogOvr=v; });
+  stepper('#ovJog',[20],20,()=>{});
   stepper('#ovSpin',[50,60,70,80,90,100,110,120],100,(v)=>{ MACH.spinOvr=v; });
 }
 
-/* ---------- CYCLE START / FEED HOLD / RESET / EMERGÊNCIA ---------- */
+/* ---------- CYCLE START / CYCLE STOP / RESET / EMERGÊNCIA ---------- */
 $('#opStart').onclick=()=>{
   if(MACH.emg){ machineAlarm('EMERGÊNCIA acionada — solte o botão e refaça o retorno à referência.'); return; }
+  if(!powerOk()) return;
   if(MACH.holdMove){ MACH.holdMove=false; $('#opHold').classList.remove('lit'); $('#opStart').classList.add('lit'); return; }
+  if(MACH.mode==='REF'){ refCycle(); return; }
+  if(MACH.pwr.door&&['MEM','MDI'].includes(MACH.mode)){ machineAlarm('PORTA ABERTA — feche com OPEN/CLOSE DOOR para rodar o ciclo.'); return; }
   if(MACH.mode==='MDI'){ runMDI(); return; }
-  if(MACH.mode!=='MEM'){ machineAlarm(`CYCLE START: no modo ${MACH.mode} não roda programa. Selecione <b>MEM</b> (AUTO) para o programa ou <b>MDI</b> para um bloco.`.replace(/<[^>]+>/g,'')); return; }
-  if(!allRef()){ machineAlarm('ALM 224 — RETORNO À REFERÊNCIA NÃO FEITO. Modo REF: aperte '+(SIM.machine==='torno'?'+X e +Z':'+X, +Y e +Z')+'.'); return; }
+  if(MACH.mode!=='MEM'){ machineAlarm(`CYCLE START: no modo ${MACH.mode} não roda programa. Selecione AUTO para o programa, MDI para um bloco ou HOME para referenciar.`); return; }
+  if(!allRef()){ machineAlarm('ALM 224 — RETORNO À REFERÊNCIA NÃO FEITO. Aperte HOME, escolha '+(SIM.machine==='torno'?'+X / +Z':'+X / +Y / +Z')+' e CYCLE START para cada eixo.'); return; }
   if(!SIM.res){ toast('Esta fase não tem simulação.'); return; }
   if(!has3D){ toast('O 3D não carregou neste navegador (WebGL desligado?). O DESENHO 2D continua valendo.',4000); return; }
   $('#simPanel').classList.remove('mode2d'); $('#tab3d').classList.add('on'); $('#tab2d').classList.remove('on');
   if(!Sim3D.active()){ MACH.almList=[]; $('#crtAlm').textContent=''; $$('#progTable tr.alm,.bl.alm').forEach(t=>t.classList.remove('alm')); $('#crtAlarm').classList.remove('on'); MACH.afterRun=false; }
+  if(!MACH.pwr.chuck){ machineAlarm('PLACA SOLTA (CHUCK UNCLAMP) — aperte CHUCK CLAMP antes de rodar o programa.'); return; }
   Sim3D.setOpts({single:$('#kSBK').getAttribute('aria-pressed')==='true'});
   Sim3D.play();
   $('#opStart').classList.add('lit'); $('#opHold').classList.remove('lit'); $('#crtRun').textContent='STRT';
@@ -707,7 +835,7 @@ $('#opHold').onclick=()=>{
 $('#opReset').onclick=()=>{
   animCancel++; MACH.moving=false; MACH.holdMove=false; jogH=null;
   Sim3D.stop(); markRun(-1); MACH.runRow=-1; MACH.runPos=null; MACH.runState=null; MACH.afterRun=false;
-  MACH.spin=5; MACH.cool=false; $('#kCool').classList.remove('lit'); Sim3D.setSpin({spin:5,cool:false});
+  MACH.spin=5; MACH.cool=false; Sim3D.setSpin({spin:5,cool:false}); coolLamps();
   $('#opStart').classList.remove('lit'); $('#opHold').classList.remove('lit'); $('#crtRun').textContent='****';
   MACH.almList=[]; $('#crtAlm').textContent=''; $('#crtAlarm').classList.remove('on'); $$('#progTable tr.alm,.bl.alm').forEach(t=>t.classList.remove('alm'));
   syncTool(); renderCRT();
@@ -717,10 +845,10 @@ $('#opEmg').onclick=()=>{
   if(MACH.emg){
     animCancel++; MACH.moving=false; jogH=null; Sim3D.stop(); markRun(-1);
     Object.keys(refOf()).forEach(a=>refOf()[a]=false);
-    MACH.spin=5; MACH.cool=false; Sim3D.setSpin({spin:5,cool:false});
+    MACH.spin=5; MACH.cool=false; Sim3D.setSpin({spin:5,cool:false}); MACH.pwr.mach=false; pwrLamps(); coolLamps(); renderRefLamps();
     $('#opStart').classList.remove('lit'); $('#opHold').classList.remove('lit');
-    machineAlarm('EMERGÊNCIA — tudo parado. Solte o botão e refaça o retorno à referência (modo REF).');
-  }else{ MACH.almList=[]; $('#crtAlm').textContent=''; renderCRT(); toast('Emergência liberada. Faça o retorno à referência no modo <b>REF</b>.'); }
+    machineAlarm('EMERGÊNCIA — tudo parado. Solte o botão, aperte MACHINE ON, RESET e refaça o HOME.');
+  }else{ MACH.almList=[]; $('#crtAlm').textContent=''; renderCRT(); toast('Emergência liberada. Aperte <b>MACHINE ON</b>, <b>RESET</b> e faça o <b>HOME</b> dos eixos.',4600); }
 };
 
 /* ---------- MDI: executa os blocos digitados ---------- */

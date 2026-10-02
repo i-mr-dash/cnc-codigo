@@ -193,59 +193,42 @@
 
   <div class="ss-kbd" id="kbd" aria-label="Teclado MDI"></div>
 
-  <div class="ss-mach" id="opPanel">
-    <section class="ss-grp ss-modes" aria-label="Seletor de modo">
-      <h4>MODO</h4>
-      <div class="ss-row">
-        <button class="ssk" data-mode="EDIT" aria-pressed="false">EDIT</button><button class="ssk" data-mode="MEM" aria-pressed="true">MEM<small>AUTO</small></button>
-        <button class="ssk" data-mode="MDI" aria-pressed="false">MDI</button><button class="ssk" data-mode="JOG" aria-pressed="false">JOG</button>
-        <button class="ssk" data-mode="INC" aria-pressed="false">INC<small>PASSO</small></button><button class="ssk" data-mode="HND" aria-pressed="false">HNDL<small>MANIVELA</small></button>
-        <button class="ssk" data-mode="REF" aria-pressed="false">REF<small>ZRN</small></button>
+  <div class="ss-mach ro" id="opPanel">
+    <div class="ro-left">
+      <button class="emg" id="opEmg" title="Botão de emergência (cogumelo vermelho)"><span>EMERGÊNCIA</span></button>
+      <div class="knob" id="ovSpin"><span>ROTAÇÃO DO FUSO</span><div><button data-d="-1" aria-label="Menos">−</button><output>100%</output><button data-d="1" aria-label="Mais">+</button></div></div>
+      <div class="knob" id="ovFeed"><span>AVANÇO / JOG</span><div><button data-d="-1" aria-label="Menos">−</button><output>100%</output><button data-d="1" aria-label="Mais">+</button></div></div>
+    </div>
+    <div class="ro-center">
+      <div class="ro-grid" id="roGrid"><button class="rk" title="AUTO" data-mode="MEM"><i class="lp"></i><span>AUTO</span></button><button class="rk" title="EDIT" data-mode="EDIT"><i class="lp"></i><span>EDIT</span></button><button class="rk" title="MDI" data-mode="MDI"><i class="lp"></i><span>MDI</span></button><button class="rk" title="HOME" data-mode="REF"><i class="lp"></i><span>HOME</span></button><button class="rk" title="+X" data-ax="x:1"><i class="lp"></i><span>+X</span></button><button class="rk" title="WASH GUN" id="kWash"><i class="lp"></i><span>WASH GUN</span></button><button class="rk" title="JOG" data-mode="JOG"><i class="lp"></i><span>JOG</span></button><button class="rk" title="DRY RUN" id="kDRN" aria-pressed="false"><i class="lp"></i><span>DRY RUN</span></button><button class="rk" title="PROG TEST" id="kPT" aria-pressed="false"><i class="lp"></i><span>PROG TEST</span></button><button class="rk" title="-Z" data-ax="z:-1"><i class="lp"></i><span>−Z</span></button><button class="rk" title="TRVS" id="kRapid" aria-pressed="false"><i class="lp"></i><span>TRVS</span></button><button class="rk" title="+Z" data-ax="z:1"><i class="lp"></i><span>+Z</span></button><button class="rk" title="MPG X1" data-mode="HND" data-inc="0"><i class="lp"></i><span>MPG<br>X1</span></button><button class="rk" title="MPG X10" data-mode="HND" data-inc="1"><i class="lp"></i><span>MPG<br>X10</span></button><button class="rk" title="MPG X100" data-mode="HND" data-inc="2"><i class="lp"></i><span>MPG<br>X100</span></button><button class="rk" title="PROG RESTRT" id="kRestrt"><i class="lp"></i><span>PROG<br>RESTRT</span></button><button class="rk" title="-X" data-ax="x:-1"><i class="lp"></i><span>−X</span></button><button class="rk" title="OK OPERATOR" id="kOkOp"><i class="lp"></i><span>OK<br>OPERATOR</span></button><button class="rk" title="SINGL BLOCK" id="kSBK" aria-pressed="false"><i class="lp"></i><span>SINGL<br>BLOCK</span></button><button class="rk" title="BLOCK DELET" id="kBDT" aria-pressed="false"><i class="lp"></i><span>BLOCK<br>DELET</span></button><button class="rk" title="OPT STOP" id="kOPT" aria-pressed="false"><i class="lp"></i><span>OPT<br>STOP</span></button><button class="rk" title="TURRET POS" id="kTP"><i class="lp"></i><span>TURRET<br>POS</span></button><button class="rk" title="CHIP CONV FW" id="kChipFw" aria-pressed="false"><i class="lp"></i><span>CHIP CONV<br>FW</span></button><button class="rk" title="CHIP C STOP/RW" id="kChipSt"><i class="lp"></i><span>CHIP C<br>STOP/RW</span></button><button class="rk" title="CLNT ON" id="kClOn"><i class="lp"></i><span>CLNT<br>ON</span></button><button class="rk" title="CLNT OFF" id="kClOff"><i class="lp"></i><span>CLNT<br>OFF</span></button><button class="rk" title="CLNT AUTO" id="kClAuto"><i class="lp"></i><span>CLNT<br>AUTO</span></button><button class="rk" title="JOG TURRET" id="kJT" aria-pressed="false"><i class="lp"></i><span>JOG<br>TURRET</span></button><button class="rk" title="SPDL CW" id="kCW"><i class="lp"></i><span>SPDL<br>CW</span></button><button class="rk" title="SPDL STOP" id="kStop"><i class="lp"></i><span>SPDL<br>STOP</span></button></div>
+      <div class="ro-ymill" id="roY" hidden><button class="rk" title="−Y" data-ax="y:-1"><i class="lp"></i><span>−Y</span></button><button class="rk" title="+Y" data-ax="y:1"><i class="lp"></i><span>+Y</span></button></div>
+    </div>
+    <div class="ro-right">
+      <div class="ro-pwr">
+        <button class="pw mach" id="pwMach"><i></i><span>MACHINE<br>ON</span></button>
+        <button class="pw cnc" id="pwCnc"><i></i><span>CNC<br>ON</span></button>
+        <button class="pw lock" id="pwLock" title="Chave LOCK / SETUP"><i></i><span>LOCK<br>SETUP</span></button>
+        <button class="pw door" id="pwDoor"><i></i><span>OPEN<br>CLOSE<br>DOOR</span></button>
       </div>
-    </section>
-    <section class="ss-grp ss-axes" aria-label="Eixos">
-      <h4>EIXOS <span class="reflamps" id="refLamps"></span></h4>
-      <div class="ss-row" id="axisKeys"></div>
-      <div class="ss-row ss-incrow" id="incRow">
-        <button class="ssk" data-inc="0">×1</button><button class="ssk on" data-inc="1">×10</button><button class="ssk" data-inc="2">×100</button><button class="ssk" data-inc="3">×1000</button>
-        <span class="ss-hsel" id="hAxis"></span>
-        <button class="ssk" id="hMinus" aria-label="Um pulso negativo">◁</button>
-        <div class="hand" id="handDial" role="slider" aria-label="Manivela eletrônica: arraste ou use a roda do mouse" style="--rot:0deg"><i></i></div>
-        <button class="ssk" id="hPlus" aria-label="Um pulso positivo">▷</button>
+      <div class="ro-pwr">
+        <button class="pw" id="kChuck"><i></i><span>CHUCK<br>CLAMP</span></button>
+        <button class="pw" id="kQuill"><i></i><span>TAIL<br>QUILL</span></button>
+        <button class="opb hold" id="opHold" title="CYCLE STOP"><i></i>CYCLE<br>STOP</button>
+        <button class="opb start" id="opStart" title="CYCLE START"><i></i>CYCLE<br>START</button>
       </div>
-    </section>
-    <section class="ss-grp" aria-label="Fuso e refrigeração">
-      <h4>FUSO · REFRIG. · TORRE</h4>
-      <div class="ss-row">
-        <button class="ssk" id="kCW" title="Fuso horário (manual)">↻ CW</button><button class="ssk" id="kStop" title="Parar o fuso">■ STOP</button><button class="ssk" id="kCCW" title="Fuso anti-horário (manual)">↺ CCW</button>
-        <button class="ssk" id="kCool" title="Refrigeração">COOL</button><button class="ssk" id="kTurret" title="Gira a torre para a próxima ferramenta (torno)">TORRE ▶</button>
+      <div class="ro-mpg">
+        <span class="reflamps" id="refLamps"></span>
+        <button class="ssk" id="hMinus" aria-label="Um pulso negativo">−</button>
+        <div class="hand" id="handDial" role="slider" aria-label="Manivela (MPG): arraste ou use a roda do mouse" style="--rot:0deg"><i></i></div>
+        <button class="ssk" id="hPlus" aria-label="Um pulso positivo">+</button>
       </div>
-    </section>
-    <section class="ss-grp" aria-label="Opções do ciclo">
-      <h4>OPÇÕES</h4>
-      <div class="ss-row">
-        <button class="ssk" id="kSBK" aria-pressed="false" title="Single block: um bloco por CYCLE START">SBK</button>
-        <button class="ssk" id="kDRN" aria-pressed="false" title="Dry run: avanços rápidos">DRN</button>
-        <button class="ssk" id="kBDT" aria-pressed="false" title="Block delete: ignora blocos que começam com /">BDT</button>
-        <button class="ssk" id="kOPT" aria-pressed="false" title="Optional stop: para no M1">OPT.STOP</button>
-      </div>
-    </section>
-    <section class="ss-grp ss-ovr" aria-label="Overrides">
-      <h4>OVERRIDE</h4>
-      <div class="ss-row">
-        <div class="stp" id="ovFeed"><span>AVANÇO</span><button data-d="-1" aria-label="Menos">−</button><output>100%</output><button data-d="1" aria-label="Mais">+</button></div>
-        <div class="stp" id="ovRapid"><span>RÁPIDO</span><button data-d="-1" aria-label="Menos">−</button><output>100%</output><button data-d="1" aria-label="Mais">+</button></div>
-        <div class="stp" id="ovJog"><span>JOG</span><button data-d="-1" aria-label="Menos">−</button><output>20%</output><button data-d="1" aria-label="Mais">+</button></div>
-        <div class="stp" id="ovSpin"><span>FUSO</span><button data-d="-1" aria-label="Menos">−</button><output>100%</output><button data-d="1" aria-label="Mais">+</button></div>
-        <span id="ovRapidV" data-v="1" hidden></span>
-      </div>
-    </section>
-    <section class="ss-cycle" aria-label="Ciclo">
-      <button class="opb start" id="opStart" title="CYCLE START"><i></i>CYCLE START</button>
-      <button class="opb hold" id="opHold" title="FEED HOLD"><i></i>FEED HOLD</button>
-      <button class="opb reset" id="opReset" title="RESET"><i></i>RESET</button>
-      <button class="emg" id="opEmg" title="Parada de emergência">EMERG.</button>
-    </section>
+    </div>
+    <div hidden>
+      <div class="stp" id="ovRapid"><span>RÁPIDO</span><button data-d="-1"></button><output>100%</output><button data-d="1"></button></div>
+      <div class="stp" id="ovJog"><span>JOG</span><button data-d="-1"></button><output>20%</output><button data-d="1"></button></div>
+      <span id="ovRapidV" data-v="1"></span>
+      <button id="opReset"></button><div id="incRow"></div><div id="hAxis"></div><div id="axisKeys"></div>
+    </div>
   </div>
 </div>
 

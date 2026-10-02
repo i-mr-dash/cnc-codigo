@@ -101,7 +101,7 @@
 .ssk.on,.ssk[aria-pressed="true"]{background:linear-gradient(180deg,#ffe57a,var(--key-on2));border-color:#7a6410;box-shadow:0 2px 0 #7a6410,inset 0 1px 0 rgba(255,255,255,.7)}
 .ssk.on::after,.ssk[aria-pressed="true"]::after{content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--led);box-shadow:0 0 5px var(--led)}
 .ssk.lit{background:linear-gradient(180deg,#c8f8d6,#93e9ad)}
-.ssk.ax{min-width:40px;font-size:12px}
+
 .axpair{display:inline-flex;gap:3px}
 .reflamps{display:inline-flex;gap:4px}
 .reflamps span{font:800 9px var(--mono);padding:1px 4px;border-radius:2px;background:#7d858f;color:#e4e7eb}
@@ -156,3 +156,46 @@
 @media(min-width:1300px) and (orientation:landscape){
   #screen-play .play-grid,#screen-bench .play-grid{grid-template-columns:minmax(0,1.75fr) minmax(0,1fr)}
 }
+
+/* ======== painel de operação — réplica do SSCNC "FANUC 0i Mate-TB (Romi G260)" ======== */
+.ss-mach.ro{display:grid!important;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;container-type:inline-size;
+  background:linear-gradient(#d9dde2,#c3c8cf);border:1px solid var(--pn-edge);border-radius:8px;padding:10px;box-shadow:inset 0 1px 0 #fff}
+.ro .ro-right{grid-column:1/-1}
+@container (min-width:620px){ .ss-mach.ro{} }
+.ro-left{display:flex;gap:10px;align-items:center;justify-content:center}
+.ro-left .knob{flex:1 1 0;max-width:150px}
+.ro .emg{margin:0;width:76px;height:76px;flex:0 0 auto;border-radius:50%;border:6px solid #f3c20c;background:radial-gradient(circle at 35% 30%,#ff6b6b,#b00000 70%);color:#fff;
+  font:900 8px "Segoe UI",system-ui,sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 4px 0 #6b0000,0 0 0 2px #1a1a1a;display:grid;place-items:center}
+.ro .emg.on{transform:translateY(3px);box-shadow:0 1px 0 #6b0000,0 0 0 2px #1a1a1a;filter:brightness(.8)}
+.knob{width:100%;background:#2b333e;border-radius:8px;padding:5px 4px 6px;color:#cfd8e2;text-align:center}
+.knob>span{display:block;font:800 7.5px "Segoe UI",system-ui,sans-serif;letter-spacing:.08em;margin-bottom:3px}
+.knob>div{display:flex;align-items:center;justify-content:center;gap:3px}
+.knob button{width:22px;height:24px;border:1px solid #11161c;border-radius:50%;background:linear-gradient(180deg,#f2f4f6,#c9ced4);font:900 13px/1 system-ui;cursor:pointer;color:#20262e}
+.knob output{min-width:40px;color:var(--crt-yel);font:700 11px var(--mono)}
+.ro-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+.rk{position:relative;min-height:42px;padding:12px 2px 4px;border:1px solid #6b727c;border-radius:4px;cursor:pointer;background:linear-gradient(180deg,#f4f6f8,#d3d8de);color:#1d232b;
+  font:800 9.5px/1.05 "Segoe UI",system-ui,sans-serif;text-align:center;box-shadow:0 2px 0 #6b727c,inset 0 1px 0 #fff;transition:transform .07s}
+.rk:active{transform:translateY(2px);box-shadow:0 0 0 #6b727c,inset 0 1px 0 #fff}
+.rk .lp{position:absolute;top:3px;left:50%;width:16px;height:5px;margin-left:-8px;border-radius:2px;background:#8b3a3a;box-shadow:inset 0 1px 1px rgba(0,0,0,.4)}
+.rk.on .lp,.rk[aria-pressed="true"] .lp{background:#ff4040;box-shadow:0 0 6px #ff4040}
+.rk[data-ax] .lp{background:#8a6d12}.rk[data-ax].on .lp{background:#ffd23c;box-shadow:0 0 6px #ffd23c}
+.rk.on,.rk[aria-pressed="true"]{border-color:#7a1f1f}
+.ro-ymill{display:flex;gap:5px;margin-top:5px;justify-content:flex-end}.ro-ymill .rk{width:calc((100% - 25px)/6)}
+.ro-ymill[hidden]{display:none}
+.ro-pwr{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap}
+.ro-pwr .pw,.ro-pwr .opb{flex:1 1 44px;min-height:38px;border:1px solid #5a626c;border-radius:4px;background:linear-gradient(180deg,#eceff2,#cfd4da);color:#1d232b;cursor:pointer;
+  font:800 8px/1.1 "Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:3px;box-shadow:0 2px 0 #5a626c}
+.ro-pwr .pw i{width:14px;height:14px;border-radius:50%;background:#4d555f;border:1px solid #222}
+.ro-pwr .pw.mach i{background:#0e6b63}.ro-pwr .pw.cnc i{background:#14707f}
+.ro-pwr .pw.on i,.ro-pwr .pw[aria-pressed="true"] i{background:#2ff1c6;box-shadow:0 0 8px #2ff1c6}
+.ro-pwr .pw.cnc.on i{background:#3fd8ff;box-shadow:0 0 8px #3fd8ff}
+.ro-pwr .pw.lock i{border-radius:2px;width:16px;height:6px}
+.ro-pwr .pw:active,.ro-pwr .opb:active{transform:translateY(2px);box-shadow:none}
+.ro-pwr .opb{color:#fff;font-size:9px;border-bottom-width:1px}.ro-pwr .opb.start{background:linear-gradient(180deg,#38b055,#237a3a)}.ro-pwr .opb.hold{background:linear-gradient(180deg,#e8913a,#b5601a)}
+.ro-pwr .opb i{width:10px;height:10px;border-radius:50%;background:#1d242c}
+.ro-mpg{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:6px;border-radius:8px;background:#2b333e}
+.ro-mpg .reflamps{width:100%;justify-content:center}
+.ro-mpg .ssk{min-width:34px;min-height:34px;border-radius:50%;font-size:15px}
+.ro-mpg .hand{width:58px;height:58px}
+.ss-off .ss-crt,.ss-off .ss-softkeys{filter:brightness(.12)}
+.ss-off .ro-grid,.ss-off .ro-ymill,.ss-off #kbd,.ss-off .ro-mpg,.ss-off #opStart,.ss-off #opHold{pointer-events:none;opacity:.55}
