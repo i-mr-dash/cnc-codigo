@@ -474,14 +474,20 @@ function runMDI(){
   const p=CNC.parse(txt); if(p.err){ machineAlarm('MDI: '+p.err.replace(/<[^>]+>/g,'')); return; }
   const g=CNC.group(p.words), o=g.o, m=SIM.machine;
   for(const G of g.G) if(!gInfo(G,m)){ machineAlarm(`G${G} não existe neste comando.`); return; }
-  if('T' in o){ MACH.tool = m==='torno'?String(Math.round(o.T)).padStart(4,'0'):String(Math.round(o.T)).padStart(2,'0');
-    const t=toolLookup(SIM.tools,m)(MACH.tool);
+  if('T' in o){ const code = m==='torno'?String(Math.round(o.T)).padStart(4,'0'):String(Math.round(o.T)).padStart(2,'0');
+    const t=toolLookup(SIM.tools,m)(code);
     if(!t){ machineAlarm(`Ferramenta T${posKey(o.T,m)} não está montada. Abra FERRAMENTAS.`); return; }
+    MACH.tool=code;
     Sim3D.placeTool(MACH.pos, MACH.tool); toast(`Ferramenta ${TOOL_TYPES[m][t.type].n} na posição de trabalho.`); }
   for(const M of g.M){ if(M===3||M===4||M===5) MACH.spin=M; if(M===8) MACH.cool=true; if(M===9) MACH.cool=false; }
   Sim3D.setSpin({spin:MACH.spin, cool:MACH.cool});
   const ax=m==='torno'?['X','Z','U','W']:['X','Y','Z'];
-  if(g.G.includes(28)){ if(!allRef()){ machineAlarm('Referencie a máquina antes (modo REF).'); return; } MACH.pos=null; Sim3D.placeTool(null); }
+  if(g.G.includes(28)){ if(!allRef()){ machineAlarm('Referencie a máquina antes (modo REF).'); return; }
+    // torno: G28 U0. recolhe só o X, G28 W0. só o Z
+    const h=Sim3D.homePos(), p={...(MACH.pos||h)};
+    if(m==='torno' && h){ if('U' in o||'X' in o) p.x=h.x; if('W' in o||'Z' in o) p.z=h.z; MACH.pos=(p.x===h.x&&p.z===h.z)?null:p; }
+    else MACH.pos=null;
+    Sim3D.placeTool(MACH.pos); }
   else if(ax.some(a=>a in o)){
     if(!allRef()){ machineAlarm('ALM 224 — referencie a máquina antes de mover pelo MDI.'); return; }
     const from={...(MACH.pos||Sim3D.homePos())}, to={...from};
@@ -884,13 +890,12 @@ function diagnoseRow(row, typed, c, m){
     if(d.code==='naoexiste') return {code:'geral', msg:'Esse código não é o usado por esse comando. Confira a tabela Fanuc × Siemens × Mach 9 no Manual.'};
     return d;
   }
-  const d=CNC.diagnose(row, typed, c, m);
-  // incremental pedido mas escreveu absoluto (e vice-versa)
-  return d;
+  return CNC.diagnose(row, typed, c, m);   // (absoluto × incremental é tratado no CNC.diagnose)
 }
 const TYPE_LBL={vazio:'bloco em branco', formato:'erro de digitação', naoexiste:'código que não existe', troca:'código trocado pelo vizinho do grupo',
   sinal:'sinal trocado', raio:'raio no lugar do diâmetro', dobro:'diâmetro dobrado', falta:'faltou uma palavra', sobra:'palavra sobrando',
-  virgula:'faltou a vírgula do ,R / ,C', micron:'unidade em mícrons', feed:'avanço na unidade errada', tool:'T com 2 dígitos no torno', valor:'número diferente do pedido', geral:'sintaxe', dup:'letra repetida'};
+  virgula:'faltou a vírgula do ,R / ,C', micron:'unidade em mícrons', feed:'avanço na unidade errada', tool:'T com 2 dígitos no torno', valor:'número diferente do pedido', geral:'sintaxe', dup:'letra repetida',
+  incr:'absoluto × incremental (X/Z × U/W)', g28:'G28 com X/Z em vez de U0/W0'};
 const cellsOf = () => $$('#progTable input');
 const firstBad = () => { for(const el of cellsOf()){ const i=rowInfo(+el.dataset.r); if(!i.ok) return i; } return null; };
 

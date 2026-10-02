@@ -37,7 +37,7 @@ const G_COMMON = {
 };
 
 const G_TORNO = {
-  70:{n:'Ciclo de ACABAMENTO', g:'cyc', d:'Passa uma vez pelo perfil final que está entre os blocos P e Q (o mesmo perfil do G71/G72), tirando o sobremetal que sobrou.', ex:'G70 P200 Q290'},
+  70:{n:'Ciclo de ACABAMENTO', g:'cyc', d:'Passa uma vez pelo perfil final que está entre os blocos P e Q (o mesmo perfil do G71/G72), tirando o sobremetal que sobrou.', ex:'G70 P200 Q280'},
   71:{n:'Ciclo de DESBASTE longitudinal', g:'cyc', d:'Tira o material em passes paralelos ao eixo Z (ao longo da peça). São DOIS blocos: G71 U(prof. por passe) R(recuo) e G71 P(1º bloco do perfil) Q(último) U(sobremetal em X) W(sobremetal em Z) F(avanço).', ex:'G71 U1. R1.'},
   72:{n:'Ciclo de DESBASTE TRANSVERSAL (faceamento)', g:'cyc', d:'Tira material em passes paralelos à face (descendo em X). DOIS blocos: G72 W(prof. por passe) R(recuo) e G72 P Q U W F.', ex:'G72 W1. R1.'},
   74:{n:'Ciclo de FURAÇÃO com bicadas (eixo Z)', g:'cyc', d:'Fura no centro dando bicadas para quebrar o cavaco. DOIS blocos: G74 R(recuo) e G74 Z(fundo) Q(bicada em MÍCRONS: 3000 = 3 mm) F.', ex:'G74 Z-14. Q3000 F0.1'},
@@ -183,9 +183,9 @@ const FLOW_FANUC_TORNO = [
   ['N100 G0 Z3. M8','aproxima a 3 mm da face e liga refrigeração'],
   ['N110 X54.','rápido até acima do material bruto'],
   ['N120 G72 W1. R1. / N130 G72 P140 Q160…','faceamento em ciclo'],
-  ['N180 G71 U1. R1. / N190 G71 P200 Q290 U0.5 W0.05 F0.3','desbaste em ciclo, 1 mm por passe'],
-  ['N200 … N290','perfil final (G0 / G1 / G2 / G3)'],
+  ['N180 G71 U1. R1. / N190 G71 P200 Q280 U0.5 W0.05 F0.3','desbaste em ciclo, 1 mm por passe'],
+  ['N200 … N280','perfil final (G0 / G1 / G2 / G3)'],
   ['N300 M5 … N330 G28 W0.','desliga e recolhe para trocar'],
-  ['N340 T0404 (ACABAMENTO) … N400 G70 P200 Q290','acabamento com compensação G42'],
+  ['N340 T0404 (ACABAMENTO) … N400 G70 P200 Q280','acabamento com compensação G42'],
   ['N420 M5 … N460 M30','desliga, recolhe e fim']
 ];

@@ -332,7 +332,7 @@ const LEVELS_TORNO = [
     codes:['G72','P','Q'],
     tips:['O perfil é escrito normalmente (G0/G1) nos blocos de N140 a N160 — o ciclo lê de lá.',
           'No O7044 original estava <b>G72N140Q170</b> — o certo é <b>P140</b> (o N ali é erro de digitação).',
-          'U0. W0. = não deixar sobremetal (a face já sai na medida).']
+          'U0. W0. = não deixar sobremetal (a face já sai na medida). Omitir o U e o W dá no mesmo.']
   },
   part:{ stock:[52,70], face:1, prof:'G1 X0 Z0\nX52.\nZ-70.', pts:[['W',0,0]] },
   rows:[
@@ -340,7 +340,7 @@ const LEVELS_TORNO = [
     w('N100','G0 Z3. M8','Aproxime a 3 mm da face e ligue a refrigeração'),
     w('N110','X54.','Rápido até ø54, acima do bruto',{alt:['G0 X54.']}),
     w('N120','G72 W1. R1.','1º bloco do faceamento: 1 mm por passe (W) e recuo de 1 mm (R)'),
-    w('N130','G72 P140 Q160 U0. W0. F0.3','2º bloco: perfil de N140 até N160, sem sobremetal, avanço 0,3'),
+    w('N130','G72 P140 Q160 U0. W0. F0.3','2º bloco: perfil de N140 até N160, sem sobremetal, avanço 0,3',{alt:['G72 P140 Q160 F0.3']}),
     w('N140','G0 Z0.','Perfil: rápido até a linha da face (Z0)'),
     w('N150','G1 X-1.6 F0.1','Perfil: corte até passar do centro, avanço 0,1'),
     w('N160','G1 Z1.','Perfil: afaste 1 mm da face'),
@@ -487,7 +487,7 @@ const LEVELS_TORNO = [
     w('N100','G0 Z3. M8','Aproxima a 3 mm da face com refrigeração'),
     w('N110','X54.','Rápido até ø54',{alt:['G0 X54.']}),
     w('N120','G72 W1. R1.','Faceamento: 1 mm por passe, recuo 1'),
-    w('N130','G72 P140 Q160 U0. W0. F0.3','Faceamento: perfil N140–N160, sem sobra, F0.3'),
+    w('N130','G72 P140 Q160 U0. W0. F0.3','Faceamento: perfil N140–N160, sem sobra, F0.3',{alt:['G72 P140 Q160 F0.3']}),
     w('N140','G0 Z0.','Perfil da face: até Z0'),
     w('N150','G1 X-1.6 F0.1','Perfil da face: corta passando do centro, F0.1'),
     w('N160','G1 Z1.','Perfil da face: sai 1 mm'),

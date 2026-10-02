@@ -113,7 +113,8 @@ function applyPoint(seg, p0, prev){
   if(machine==='torno'){
     let kind = seg.kind==='rapid' ? 'rapid' : seg.kind==='drill' ? 'drill' : seg.kind==='groove' ? 'groove' : latheKindOf(t);
     const tk=latheKindOf(t);
-    if(kind==='rapid'){ if(!seg.safe && latheInside(p.x,p.z,tk,t)) alarm(seg.row,'COLISÃO: AVANÇO RÁPIDO (G0) DENTRO DO MATERIAL'); return; }
+    // o 1º ponto do G0 é onde a ferramenta já está (fim do corte anterior): não conta como colisão
+    if(kind==='rapid'){ if(!seg.safe && prev && latheInside(p.x,p.z,tk,t)) alarm(seg.row,'COLISÃO: AVANÇO RÁPIDO (G0) DENTRO DO MATERIAL'); return; }
     if(kind==='turn' && tk!=='turn') kind=tk;                 // broca/bedame chamados em G1 comum
     if(kind==='groove' && tk==='drill') kind='drill';
     if(latheInside(p.x,p.z,kind,t) && seg.spin===5) alarm(seg.row,'CORTE COM O FUSO PARADO (faltou M3)');

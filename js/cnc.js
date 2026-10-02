@@ -102,7 +102,12 @@ function simulate(lines, machine){
   function moveTo(t, kind, row){
     const a=pos();
     if(st.home || a.x===null || a.z===null){
-      Object.assign(st, t); if(st.x!==null && st.z!==null) st.home=false;
+      Object.assign(st, t);
+      if(st.x!==null && st.z!==null){
+        st.home=false;
+        // saindo da referência: ao menos o ponto de chegada é conferido (G0 direto para dentro da peça = colisão)
+        if(T) push(kind, [pos(), pos()], row);
+      }
       return;
     }
     Object.assign(st, t);
@@ -160,9 +165,10 @@ function simulate(lines, machine){
     return pts;
   }
 
+  /* passes de desbaste: cs = perfil A→B (sem o bloco P, que só leva do ponto de partida até A) */
   function lathePasses(kind, g, cs, row){
     const pts=polyOf(cs); if(pts.length<2) return;
-    const sx=st.x, sz=st.z;
+    const sx=st.x, sz=st.z, base={row, tool:st.tool, spin:st.spin, comp:40};
     if(kind===71){
       const step=g.U1||1; let minR=Infinity; pts.forEach(p=>minR=Math.min(minR,p.x/2));
       for(let r=sx/2-step; r>minR+1e-6; r-=step){
@@ -172,13 +178,24 @@ function simulate(lines, machine){
           if((ra-r)*(rb-r)<=0 && ra!==rb){ zHit=a.z+(b.z-a.z)*(r-ra)/(rb-ra); break; }
         }
         if(zHit===null) continue;
-        segs.push({kind:'pass', pts:[{x:sx,y:0,z:sz},{x:r*2,y:0,z:sz},{x:r*2,y:0,z:zHit},{x:r*2+2,y:0,z:zHit+1},{x:r*2+2,y:0,z:sz}], row, tool:st.tool});
+        // entra em rápido até o diâmetro do passe, corta até o perfil, recua a 45° e volta em rápido
+        segs.push({kind:'rapid', pts:[{x:sx,y:0,z:sz},{x:r*2,y:0,z:sz}], ...base});
+        segs.push({kind:'pass', pts:[{x:r*2,y:0,z:sz},{x:r*2,y:0,z:zHit},{x:r*2+2,y:0,z:zHit+1}], ...base});
+        segs.push({kind:'rapid', pts:[{x:r*2+2,y:0,z:zHit+1},{x:r*2+2,y:0,z:sz},{x:sx,y:0,z:sz}], ...base});
       }
     }else{
       const step=g.W1||1; let minZ=Infinity, minX=Infinity;
       pts.forEach(p=>{ minZ=Math.min(minZ,p.z); minX=Math.min(minX,p.x); });
-      for(let z=sz-step; z>minZ+1e-6; z-=step)
-        segs.push({kind:'pass', pts:[{x:sx,y:0,z:sz},{x:sx,y:0,z},{x:minX,y:0,z},{x:minX,y:0,z:z+1},{x:sx,y:0,z:z+1}], row, tool:st.tool});
+      for(let z=sz-step; z>minZ+1e-6; z-=step){
+        let xHit=minX;
+        for(let k=1;k<pts.length;k++){
+          const a=pts[k-1], b=pts[k];
+          if((a.z-z)*(b.z-z)<=0 && a.z!==b.z){ xHit=a.x+(b.x-a.x)*(z-a.z)/(b.z-a.z); break; }
+        }
+        segs.push({kind:'rapid', pts:[{x:sx,y:0,z:sz},{x:sx,y:0,z}], ...base});
+        segs.push({kind:'pass', pts:[{x:sx,y:0,z},{x:xHit,y:0,z},{x:xHit,y:0,z:z+1}], ...base});
+        segs.push({kind:'rapid', pts:[{x:xHit,y:0,z:z+1},{x:sx,y:0,z:z+1},{x:sx,y:0,z:sz}], ...base});
+      }
     }
   }
 
@@ -314,7 +331,8 @@ function simulate(lines, machine){
       if(!c){ errs.push({row, msg:`Não achei os blocos N${Math.round(o.P)} a N${Math.round(o.Q)} do perfil.`}); return; }
       if(byN[Math.round(o.P)] > curLine) skipTo = byN[Math.round(o.Q)];   // Fanuc: depois do ciclo segue após o bloco Q
       if(st.x!==null && st.z!==null && !st.home){
-        lathePasses(G, st.pend[G]||{}, c.segs, row);
+        const rowP=lines[byN[Math.round(o.P)]].row;
+        lathePasses(G, st.pend[G]||{}, c.segs.filter(s=>s.row!==rowP), row);
         c.segs.forEach(s=>{ s.row=row; s.kind=s.kind==='rapid'?'rapid':'feed'; s.cyc=true; s.tool=st.tool; segs.push(s); });
       }
       return;
@@ -338,16 +356,24 @@ function simulate(lines, machine){
     if(G===75){
       if(!('X' in o) && !('U' in o)){ st.pend[75]=o; return; }
       const xt='X' in o?o.X:st.x+o.U;
-      push('groove',[{x:start.x,y:0,z:start.z},{x:xt,y:0,z:start.z}],row);
-      push('rapid',[{x:xt,y:0,z:start.z},{x:start.x,y:0,z:start.z}],row);
+      // com Z/W o G75 faz vários mergulhos, andando Q (mícrons) em Z entre eles
+      const zt='Z' in o?o.Z:'W' in o?st.z+o.W:start.z, dz=zt-start.z;
+      const step=Math.abs(o.Q)>0?o.Q/1000:Math.abs(dz)||1, nPl=Math.min(200, Math.ceil(Math.abs(dz)/step-1e-6));
+      for(let k=0;k<=nPl;k++){
+        const z=nPl? start.z+dz*Math.min(1,k*step/Math.abs(dz)) : start.z;
+        push('groove',[{x:start.x,y:0,z},{x:xt,y:0,z}],row);
+        push('rapid',[{x:xt,y:0,z},{x:start.x,y:0,z}],row);
+      }
+      if(nPl) push('rapid',[{x:start.x,y:0,z:zt},{x:start.x,y:0,z:start.z}],row);
       return;
     }
     if(G===76){
       if(!('X' in o) && !('U' in o)){ st.pend[76]=o; return; }
       const xt='X' in o?o.X:st.x+o.U, zt='Z' in o?o.Z:st.z+(o.W||0), pitch=o.F||1;
-      const pts=[], depth=(start.x-xt)/2;
+      // filete: altura P (mícrons) do 2º bloco, ou 0,6134 × passo; a crista não passa do ponto de partida
+      const h=('P' in o && o.P>0) ? o.P/1000 : pitch*0.6134, crest=Math.min(start.x, xt+2*h), pts=[];
       for(let z=start.z, k=0; z>=zt-1e-6; z-=pitch/2, k++)
-        pts.push({x: k%2 ? xt : xt+Math.min(depth,pitch*0.6)*2*0.5, y:0, z});
+        pts.push({x: k%2 ? xt : crest, y:0, z});
       push('rapid',[{x:start.x,y:0,z:start.z},{x:xt+pitch,y:0,z:start.z}],row);
       push('thread', pts, row);
       push('rapid',[{x:xt,y:0,z:zt},{x:start.x,y:0,z:zt},{x:start.x,y:0,z:start.z}],row); segs[segs.length-1].safe=true;
@@ -500,6 +526,22 @@ function diagnose(row, typed, ctx, machine, lastExpX){
   // R sem vírgula no Fanuc
   if(m && (m.L===',R'||m.L===',C') && x && x.L===m.L[1])
     return {code:'virgula', msg:`No Fanuc o canto automático leva <b>vírgula</b>: <b>${m.L}${fmtN(m.v)}</b>. Sem vírgula o ${m.L[1]} vira outra coisa.`};
+  // contexto do bloco esperado (torno): qual ciclo / função ele usa
+  const eb=group(parse(d.v).words), eg=eb.G, has=G=>eg.includes(G), T=machine==='torno';
+  const cyc1 = (has(71)||has(72)) && !('P' in eb.o);          // 1º bloco do G71/G72
+  if(T){
+    if(has(28) && m && x && (m.L==='U'||m.L==='W') && x.L===(m.L==='U'?'X':'Z'))
+      return {code:'g28', msg:`<b>G28 ${x.L}${fmtN(x.v)}</b> manda a ferramenta passar ANTES pelo ponto ${x.L}${fmtN(x.v)} (${x.L==='X'?'o centro da peça':'a face da peça'}!) e só depois ir para a referência. Com <b>${m.L}0.</b> ela "anda 0 daqui" e vai direto.`};
+    if(cyc1 && m && x && ((m.L==='U'&&x.L==='W')||(m.L==='W'&&x.L==='U')))
+      return {code:'troca', msg:`No 1º bloco do <b>G${has(71)?71:72}</b> a profundidade por passe vai em <b>${m.L}</b>: ${has(71)?'o G71 desce em X a cada passe (U, no raio)':'o G72 avança em Z a cada passe (W)'}.`};
+    if((has(74)||has(75)) && m && x && ((m.L==='P'&&x.L==='Q')||(m.L==='Q'&&x.L==='P')))
+      return {code:'troca', msg:`No <b>G${has(74)?74:75}</b> a bicada vai em <b>${m.L}</b> (${has(74)?'o G74 fura em Z → Q':'o G75 mergulha em X → P'}), em mícrons.`};
+    const pair={U:'X',W:'Z',X:'U',Z:'W'};
+    if(!has(28) && !eg.some(G=>G>=70&&G<=76) && m && x && pair[m.L]===x.L)
+      return {code:'incr', msg: /[UW]/.test(m.L)
+        ? `Este bloco pede <b>incremental</b>: <b>${m.L}</b> = quanto andar a partir de onde a ferramenta está (${m.L==='U'?'no diâmetro':'em Z'}), e não a posição final ${x.L}.`
+        : `Este bloco pede a posição <b>absoluta</b> em <b>${m.L}</b> (medida a partir do zero-peça), e não o incremental ${x.L}.`};
+  }
   if(w){
     if(w.L==='G'||w.L==='M'){
       const gi = w.L==='G'?gInfo(w.got,machine):mInfo(w.got,machine);
@@ -516,14 +558,21 @@ function diagnose(row, typed, ctx, machine, lastExpX){
     }
     if(w.L==='RAW') return {code:'geral', msg:`<b>${w.got}</b> não confere. Revise a sintaxe.`};
     const e=w.exp, g=w.got;
+    if(T && has(4) && (w.L==='X'||w.L==='U'||w.L==='P')) return {code:'valor', msg: w.L==='P'
+      ? `No <b>G4</b> o P é o tempo em <b>milésimos de segundo</b>, sem ponto: P1000 = 1 s.`
+      : `No <b>G4</b> o ${w.L} é o tempo em <b>segundos</b> (aqui ${w.L} não é diâmetro): G4 X2. = 2 s.`};
+    if(T && has(76) && !('X' in eb.o) && !('U' in eb.o) && w.L==='P') return {code:'valor', msg:'No 1º bloco do <b>G76</b> o P tem <b>6 dígitos</b>, de 2 em 2: passes de acabamento, chanfro de saída e ângulo da ferramenta. Ex.: P010060.'};
+    if(T && has(76) && w.L==='F') return {code:'valor', msg:'No <b>G76</b> o F é o <b>PASSO</b> da rosca em mm (ex.: M20 x 1,5 → F1.5), não o avanço.'};
+    if(T && cyc1 && w.L==='U') return {code:'valor', msg:'No 1º bloco do <b>G71</b> o U é a <b>profundidade de corte por passe</b>, medida no RAIO (não no diâmetro). Confira o enunciado.'};
     if(e!==0 && near(g,-e)) return {code:'sinal', msg:`O número de <b>${w.L}</b> está certo, mas o <b>sinal</b> está trocado. ${w.L==='Z'?'Para dentro da peça Z é negativo; fora dela (à direita da face / acima do topo) é positivo.':''}`};
     if(machine==='torno' && (w.L==='X'||w.L==='U') && e!==0 && near(g*2,e)) return {code:'raio', msg:`Você escreveu o <b>raio</b>. No torno ${w.L} é <b>diâmetro</b> — o dobro.`};
     if(machine==='torno' && (w.L==='X'||w.L==='U') && e!==0 && near(g,e*2)) return {code:'dobro', msg:`${w.L} ficou com o dobro. O desenho já mostra o <b>diâmetro</b> — não multiplique por 2.`};
+    if(T && w.L==='I' && e!==0 && near(g,e*2)) return {code:'dobro', msg:'O <b>I</b> é medido no <b>RAIO</b> (diferente do X, que é diâmetro): é a metade da diferença de diâmetros entre o início e o centro.'};
     if(w.L==='F' && ctx && machine==='torno' && g>=10 && e<2) return {code:'feed', msg:`F${fmtN(g)} parece mm/min. No torno com <b>G95</b> o avanço é em <b>mm por rotação</b> (valores como 0.1, 0.2, 0.3).`};
     if((w.L==='Q'||w.L==='P') && near(g*1000,e)) return {code:'micron', msg:`Neste ciclo ${w.L} é em <b>mícrons</b>, sem ponto: ${fmtN(g)} mm = <b>${w.L}${fmtN(e)}</b>.`};
     if((w.L==='Q'||w.L==='P') && near(g,e*1000)) return {code:'micron', msg:`${w.L}${fmtN(g)} ficou mil vezes maior. Confira a unidade pedida no enunciado.`};
     if(w.L==='T' && machine==='torno' && near(g*100+g,e)) return {code:'tool', msg:'No torno o T tem <b>4 dígitos</b>: os 2 primeiros são a posição na torre, os 2 últimos o corretor. Ex.: T0101.'};
-    return {code:'valor', msg:`<b>${wordTxt(w.L,g)}</b> não confere com o pedido. Lembre: ${w.L} = ${addrInfo(w.L,machine)||w.L}. Releia o enunciado e os pontos do desenho.`};
+    return {code:'valor', msg:`<b>${w.L==='T'&&T?'T'+String(Math.round(g)).padStart(4,'0'):wordTxt(w.L,g)}</b> não confere com o pedido. Lembre: ${w.L} = ${addrInfo(w.L,machine)||w.L}. Releia o enunciado e os pontos do desenho.`};
   }
   if(m){
     if(m.L==='G'){ const i=gInfo(m.v,machine); return {code:'falta', msg:`Falta uma função G: este bloco precisa de <b>${i?i.n.toLowerCase():'um G'}</b>.`}; }
@@ -553,15 +602,51 @@ function checkRow(row, typed, ctx, machine){
   return {ok:false};
 }
 
+/* torno: o significado de X/U/W/P/Q/R/S/F depende do G do bloco */
+function latheWord(L, v, G, o){
+  const has=g=>G.includes(g), f=fmtN(v), um=`${f} mícrons = ${fmtN(v/1000)} mm`;
+  if(has(4)){ if(L==='X'||L==='U') return `pausa de ${f} segundo(s)`; if(L==='P') return `pausa de ${f} milésimos = ${fmtN(v/1000)} s`; }
+  if(has(28) && (L==='U'||L==='W')) return `recolhe o ${L==='U'?'X':'Z'} direto para a referência (anda ${f} antes = sem ponto intermediário)`;
+  if(L==='S'){ if(has(92)||has(50)) return `limite máximo de ${f} rpm`; if(has(96)) return `velocidade de corte ${f} m/min`; if(has(97)) return `${f} rpm fixas`; }
+  if((has(2)||has(3)) && L==='R') return `raio do arco: ${f} mm`;
+  if(has(70)||has(71)||has(72)){
+    if(L==='P') return `1º bloco do perfil: N${f}`; if(L==='Q') return `último bloco do perfil: N${f}`;
+    if(!('P' in o)){ if(L==='R') return `recuo de ${f} mm depois de cada passe`; if(L==='U') return `profundidade de ${f} mm por passe (no raio)`; if(L==='W') return `profundidade de ${f} mm por passe (em Z)`; }
+    else { if(L==='U') return `sobremetal de ${f} mm no diâmetro para o acabamento`; if(L==='W') return `sobremetal de ${f} mm em Z para o acabamento`; }
+  }
+  if(has(74)||has(75)){
+    if(L==='R') return `recuo de ${f} mm a cada bicada`;
+    if(L==='Q') return has(74)?`bicada (em Z) de ${um}`:`deslocamento em Z entre mergulhos: ${um}`;
+    if(L==='P') return has(75)?`bicada (em X) de ${um}`:`deslocamento em X entre furos: ${um}`;
+    if(L==='Z' && has(74)) return `fundo do furo em Z${f}`;
+    if(L==='X' && has(75)) return `fundo do canal: ø${f}`;
+  }
+  if(has(76)){
+    if(!('X' in o) && !('U' in o)){
+      const s=String(Math.round(v)).padStart(6,'0');
+      if(L==='P') return `${s.slice(0,2)} = passe(s) de acabamento · ${s.slice(2,4)} = chanfro de saída (décimos do passo) · ${s.slice(4)} = ângulo da ferramenta (graus)`;
+      if(L==='Q') return `passe mínimo ${um}`; if(L==='R') return `sobremetal de acabamento ${f} mm`;
+    }else{
+      if(L==='P') return `altura do filete ${um}`; if(L==='Q') return `profundidade do 1º passe ${um}`;
+      if(L==='F') return `PASSO da rosca: ${f} mm`; if(L==='X') return `diâmetro do fundo da rosca: ø${f}`; if(L==='Z') return `fim da rosca em Z${f}`;
+    }
+  }
+  if(L==='U') return `incremental em X: ${v<0?'diminui':'aumenta'} ${fmtN(Math.abs(v))} mm no diâmetro`;
+  if(L==='W') return `incremental em Z: anda ${fmtN(Math.abs(v))} mm para a ${v<0?'esquerda (rumo à placa)':'direita (afasta da placa)'}`;
+  return null;
+}
+
 /* explica um bloco inteiro palavra por palavra */
 function explainBlock(text, machine){
   const p=parse(text);
   if(p.err) return [p.err];
-  const out=[];
+  const out=[], gr=group(p.words), T=machine==='torno';
   for(const w of p.words){
     if(w.v===null){ out.push(`<b>${w.raw}</b>`); continue; }
-    const t=wordTxt(w.L,w.v);
-    const e=explainWord(w.L,w.v,machine);
+    const t= T && w.L==='T' ? 'T'+String(Math.round(w.v)).padStart(4,'0')
+      : T && w.L==='P' && gr.G.includes(76) && !('X' in gr.o) && !('U' in gr.o) ? 'P'+String(Math.round(w.v)).padStart(6,'0')
+      : wordTxt(w.L,w.v);
+    const e=(T && latheWord(w.L,w.v,gr.G,gr.o)) || explainWord(w.L,w.v,machine);
     out.push(`<b>${t}</b> → ${e}`);
   }
   if(p.comment) out.push(`<b>(${p.comment})</b> → comentário, a máquina ignora`);
