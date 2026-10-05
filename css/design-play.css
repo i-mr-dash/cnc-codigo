@@ -212,7 +212,7 @@
   #screen-play .simslot{min-height:0;height:100%;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;border-radius:6px}
   #screen-play .simslot>#simPanel{display:flex;flex-direction:column;min-height:100%}
   #screen-play .simslot .mview{flex:1 1 auto;display:flex;flex-direction:column;min-height:240px}
-  #screen-play .simslot .crt-view{flex:1 1 auto;height:auto;min-height:200px}
+  #screen-play .simslot .crt-view{flex:1 1 auto;height:auto;min-height:max(440px,60vh)}
   #screen-play .play-grid{gap:14px}
   .tablepanel .actions{flex:0 0 auto}
   #screen-play .tablepanel .tablewrap{max-height:none;flex:1 1 auto}
@@ -232,7 +232,7 @@
   .play-grid[data-view="prog"]>.simslot{display:none}
   .play-grid[data-view="sim"]>.panel{display:none}
   #screen-play .play-grid,#screen-bench .play-grid{gap:0;grid-template-columns:minmax(0,1fr)}
-  .crt-view{height:min(44vh,460px);height:min(44dvh,460px)}
+  .crt-view{height:min(58vh,580px);height:min(58dvh,580px)}
   .tablepanel .actions{position:sticky;bottom:0;z-index:5;box-shadow:0 -6px 16px rgba(0,0,0,.18)}
 }
 @media (min-width:700px) and (max-width:1180px) and (orientation:portrait){
@@ -247,7 +247,7 @@
    N + descrição em cima, campo de código com a largura toda embaixo — sem rolagem horizontal */
 @media(max-width:600px){
   .viewtabs{margin-bottom:10px}
-  .crt-view{height:min(64vw,300px)}
+  .crt-view{height:min(84vw,380px)}
   .tablepanel .panel-bar{padding:9px 12px}
   #progTable thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
   #progTable,#progTable tbody{display:block}

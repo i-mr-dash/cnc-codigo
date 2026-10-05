@@ -135,14 +135,14 @@
 /* ---- desktop largo: 3D | tela do comando em cima; teclado | painel de operação embaixo ---- */
 @media(min-width:1100px) and (orientation:landscape){
   #screen-play .simslot>#simPanel.ss,#screen-bench .simslot>#simPanel.ss{display:grid!important;height:auto!important;min-height:0!important;
-    grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);grid-template-areas:"view unit" "kbd mach";align-content:start}
+    grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);grid-template-areas:"view unit" "kbd mach";align-content:start}
   #simPanel.ss .mview{grid-area:view;display:flex;flex-direction:column;min-height:0;border-bottom:0;border-right:3px solid #8a929c}
-  #simPanel.ss .crt-view{flex:1 1 auto;height:auto;min-height:260px}
+  #simPanel.ss .crt-view{flex:1 1 auto;height:auto;min-height:max(440px,60vh)}
   #simPanel.ss .ss-unit{grid-area:unit;margin:8px 8px 0}
   #simPanel.ss .ss-kbd{grid-area:kbd;margin:8px 0 8px 8px}
   #simPanel.ss .ss-mach{grid-area:mach;margin:8px 8px 8px 10px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
   #simPanel.ss .ss-body{max-height:none;min-height:150px}
-  #screen-bench #simPanel.ss .crt-view{flex:none;height:min(46vh,420px)}
+  #screen-bench #simPanel.ss .crt-view{flex:none;height:min(62vh,600px)}
 }
 @media(max-width:560px){
   .ss-mach{grid-template-columns:1fr}

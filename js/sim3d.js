@@ -550,7 +550,13 @@ function syncSlots(){
     if(u.stubs[i]) u.stubs[i].visible=!t;
     if(!t) return;
     const w=new THREE.Group(); w.rotation.x=i*2*Math.PI/8;
-    const m=makeToolModel(t); m.position.set(-drum.position.x,-drum.position.y,-drum.position.z); w.add(m); body.add(w); u.hold.push(w);
+    const m=makeToolModel(t); m.position.set(-drum.position.x,-drum.position.y,-drum.position.z); w.add(m);
+    if(['broca','centro','interno'].includes(t.type)){      // ferramenta axial: suporte que liga o cabeçote à face do tambor
+      const ty=-drum.position.y, tz=-drum.position.z, Rr=56, len=Math.abs(ty)-Rr+6;
+      const arm=new THREE.Mesh(new THREE.BoxGeometry(70,len,30), MAT.body); arm.position.set(28,-(Rr-6)-len/2,tz); w.add(arm);
+      const cap=new THREE.Mesh(new THREE.BoxGeometry(70.4,5,30.4), MAT.hold); cap.position.set(28,-(Rr-6)-len+3,tz); w.add(cap);
+    }
+    body.add(w); u.hold.push(w);
   });
   dirty=true;
 }
