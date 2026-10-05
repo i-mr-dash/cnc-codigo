@@ -930,7 +930,7 @@ const TUT=[
 let tstep=0, tutTarget=null, tutFails=0;
 function startTutorial(){
   if(!$('#screen-play').classList.contains('active')) return;
-  tstep=0; tutFails=0; $('#tutor').classList.add('on');
+  tstep=0; tutFails=0; $('#tutor').classList.add('on'); if(window.Mascot) Mascot.init();
   addEventListener('scroll',tutReflow,true); addEventListener('resize',tutReflow); tutShow();
 }
 function tutReflow(){ requestAnimationFrame(()=>tutPlace(tutTarget)); }
@@ -946,6 +946,7 @@ function tutShow(){
   if(s.gate){ const inp=el.querySelector('input'); if(inp) setTimeout(()=>inp.focus({preventScroll:true}),60); }
   requestAnimationFrame(()=>requestAnimationFrame(()=>tutPlace(el)));
   beep(520,.05);
+  if(window.Mascot) Mascot.say((tstep===0?'Oi! Eu sou o Torninho, e vou te guiar nesse tutorial. ':'')+$('#tutText').innerHTML);
 }
 function tutPlace(el){
   if(!el||!$('#tutor').classList.contains('on')) return;
@@ -957,7 +958,7 @@ function tutPlace(el){
 }
 $('#tutNext').onclick=()=>{
   const s=TUT[tstep];
-  if(s.gate){ const res=s.check(); if(!res.ok){ tutFails++; sndErr(); $('#tutErr').innerHTML=res.msg;
+  if(s.gate){ const res=s.check(); if(!res.ok){ tutFails++; sndErr(); $('#tutErr').innerHTML=res.msg; if(window.Mascot) Mascot.say('Quase! '+res.msg);
       const b=$('#tutBubble'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
       if(tutFails>=2) $('#tutGive').style.display=''; tutPlace(tutTarget); return; }
     sndOk(); rerun(); }
@@ -966,7 +967,7 @@ $('#tutNext').onclick=()=>{
 $('#tutGive').onclick=()=>{ const el=$('#progTable input[data-r="2"]'); if(el){ el.value=TUTM().code; el.classList.add('ok'); } $('#tutErr').textContent=''; $('#tutGive').style.display='none'; };
 $('#tutBack').onclick=()=>{ if(tstep>0){ tstep--; tutShow(); } };
 $('#tutSkip').onclick=()=>{ endTutorial(); toast('Sem problema — o Manual tem "Rever o tutorial".',3500); };
-function endTutorial(){ $('#tutor').classList.remove('on','interactive'); removeEventListener('scroll',tutReflow,true); removeEventListener('resize',tutReflow); tutTarget=null; S.tutorial=true; save(); }
+function endTutorial(){ if(window.Mascot) Mascot.stop(); $('#tutor').classList.remove('on','interactive'); removeEventListener('scroll',tutReflow,true); removeEventListener('resize',tutReflow); tutTarget=null; S.tutorial=true; save(); }
 
 /* =========================================================================
    CONFETE
