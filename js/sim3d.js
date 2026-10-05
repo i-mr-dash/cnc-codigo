@@ -204,6 +204,36 @@ function floorGrid(y,cx,cz,size){
   world.add(g);
 }
 function resize(){ if(!ok) return; const w=el.clientWidth||400, h=el.clientHeight||300; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); dirty=true; }
+function panView(dx,dy){      // arrasta a vista no plano da tela (direita/esquerda/cima/baixo), qualquer que seja o ângulo
+  const k=cam.dist/600, cy=Math.cos(cam.yaw), sy=Math.sin(cam.yaw), sp=Math.sin(cam.pitch), cp=Math.cos(cam.pitch);
+  cam.tx+=-dx*k*cy+dy*k*(-sp*sy); cam.ty+=dy*k*cp; cam.tz+=dx*k*sy+dy*k*(-sp*cy);
+  dirty=true;
+}
+let follow=false;
+function buildCamPad(){
+  const host=el.parentElement||el; if(host.querySelector('.cam-pad')) return;
+  const pad=document.createElement('div'); pad.className='cam-pad'; pad.setAttribute('role','group'); pad.setAttribute('aria-label','Câmera');
+  pad.innerHTML='<button data-c="up" title="Subir a vista (seta ↑)">▲</button><button data-c="in" title="Aproximar (+)">＋</button>'+
+    '<button data-c="left" title="Vista para a esquerda (seta ←)">◀</button><button data-c="fol" title="Seguir a ferramenta" aria-pressed="false">🎯</button><button data-c="right" title="Vista para a direita (seta →)">▶</button>'+
+    '<button data-c="down" title="Descer a vista (seta ↓)">▼</button><button data-c="out" title="Afastar (−)">－</button>';
+  host.appendChild(pad);
+  const act=c=>{ const st=26;
+    if(c==='up') panView(0,-st); else if(c==='down') panView(0,st); else if(c==='left') panView(-st,0); else if(c==='right') panView(st,0);
+    else if(c==='in'){ cam.dist=Math.max(20,cam.dist*0.9); dirty=true; } else if(c==='out'){ cam.dist=Math.min(1500,cam.dist*1.1); dirty=true; } };
+  pad.querySelectorAll('button').forEach(b=>{
+    const c=b.dataset.c; let iv=null;
+    if(c==='fol'){ b.onclick=()=>{ follow=!follow; b.setAttribute('aria-pressed',follow); b.classList.toggle('on',follow); dirty=true; }; return; }
+    const stop=()=>{ clearInterval(iv); iv=null; };
+    b.addEventListener('pointerdown',e=>{ e.preventDefault(); act(c); stop(); iv=setInterval(()=>act(c),70); });
+    ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,stop));
+  });
+  let hover=false; host.addEventListener('mouseenter',()=>hover=true); host.addEventListener('mouseleave',()=>hover=false);
+  addEventListener('keydown',e=>{
+    if(!hover||/INPUT|TEXTAREA|SELECT/.test((e.target&&e.target.tagName)||'')||e.ctrlKey||e.metaKey||e.altKey) return;
+    const m={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right','+':'in','=':'in','-':'out'}[e.key];
+    if(m){ e.preventDefault(); act(m); }
+  });
+}
 function bindControls(){
   const c=renderer.domElement, pts=new Map(); let pinch0=0, dist0=0;
   c.style.touchAction='none';
@@ -214,7 +244,7 @@ function bindControls(){
     if(pts.size===2){ p.x=e.clientX; p.y=e.clientY; const [a,b]=[...pts.values()];
       const d=Math.hypot(a.x-b.x,a.y-b.y); if(pinch0) cam.dist=Math.max(20,Math.min(1500,dist0*pinch0/d)); dirty=true; return; }
     const dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY;
-    if(e.shiftKey||e.buttons===4||e.buttons===2){ cam.tx-=dx*cam.dist/600; cam.ty+=dy*cam.dist/600; }
+    if(e.shiftKey||e.buttons===4||e.buttons===2){ panView(dx,dy); }
     else { cam.yaw-=dx*0.008; cam.pitch=Math.max(-1.45,Math.min(1.45,cam.pitch+dy*0.008)); }
     dirty=true;
   });
@@ -222,6 +252,7 @@ function bindControls(){
   c.addEventListener('pointerup',up); c.addEventListener('pointercancel',up);
   c.addEventListener('wheel',e=>{ e.preventDefault(); cam.dist=Math.max(20,Math.min(1500,cam.dist*(e.deltaY>0?1.1:0.9))); dirty=true; },{passive:false});
   c.addEventListener('dblclick',()=>{ frame(); dirty=true; });
+  buildCamPad();
   c.addEventListener('contextmenu',e=>e.preventDefault());
 }
 function placeCamera(){
@@ -314,22 +345,23 @@ function tickFx(dt, cutting){
   return a||b;
 }
 function buildDrum(){
-  const R=56, N=8, g=new THREE.Group(), body=new THREE.Group(); g.add(body);
+  const R=56, N=8, g=new THREE.Group(), body=new THREE.Group(), stubs=[]; g.add(body);
   const disc=new THREE.Mesh(new THREE.CylinderGeometry(R-8,R-8,46,N*2), MAT.dark); disc.rotation.z=Math.PI/2; body.add(disc);
   const hub=new THREE.Mesh(new THREE.CylinderGeometry(22,22,56,24), MAT.jaw); hub.rotation.z=Math.PI/2; body.add(hub);
   for(let i=0;i<N;i++){
     const a=i*2*Math.PI/N, c=Math.cos(a), sn=Math.sin(a);
     const lug=new THREE.Mesh(new THREE.BoxGeometry(46,16,34), MAT.body); lug.position.set(0,-(R-2)*c,(R-2)*sn); lug.rotation.x=a; body.add(lug);
-    if(i>0){
-      const stub=new THREE.Mesh(new THREE.BoxGeometry(20,36,20), MAT.body); stub.position.set(0,-(R+16)*c,(R+16)*sn); stub.rotation.x=a; body.add(stub);
-      const band=new THREE.Mesh(new THREE.BoxGeometry(20.4,5,20.4), MAT.hold); band.position.set(0,-(R+30)*c,(R+30)*sn); band.rotation.x=a; body.add(band);
+    const st=new THREE.Group(); body.add(st); stubs.push(st);
+    {
+      const stub=new THREE.Mesh(new THREE.BoxGeometry(20,36,20), MAT.body); stub.position.set(0,-(R+16)*c,(R+16)*sn); stub.rotation.x=a; st.add(stub);
+      const band=new THREE.Mesh(new THREE.BoxGeometry(20.4,5,20.4), MAT.hold); band.position.set(0,-(R+30)*c,(R+30)*sn); band.rotation.x=a; st.add(band);
     }
     const cv=document.createElement('canvas'); cv.width=cv.height=64; const x=cv.getContext('2d');
     x.fillStyle='#10161f'; x.fillRect(0,0,64,64); x.fillStyle='#ffd24a'; x.font='bold 44px sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(String(i+1),32,36);
     const lab=new THREE.Mesh(new THREE.PlaneGeometry(14,14), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv)}));
     lab.position.set(24,-(R-12)*c,(R-12)*sn); lab.rotation.set(0,Math.PI/2,0); lab.rotateOnWorldAxis(new THREE.Vector3(1,0,0),a); body.add(lab);
   }
-  g.userData.body=body; return g;
+  g.userData.body=body; g.userData.stubs=stubs; g.userData.hold=[]; return g;
 }
 function slotOf(code){ if(!code) return 1; return code>=100?Math.floor(code/100):code; }
 function setDrumSlot(code, snap){
@@ -358,7 +390,7 @@ function buildScene(){
     floorGrid(-M.T-8.2, M.x0+M.w/2, -(M.y0+M.h/2), Math.max(200, Math.ceil((Math.max(M.w,M.h)+160)/20)*20));
   }
   buildFx();
-  if(machine==='torno'){ drum=buildDrum(); drum.position.set(18,148,-12); toolGroup.add(drum); setDrumSlot(curTool,true); drum.userData.body.rotation.x=drumAng; }
+  if(machine==='torno'){ drum=buildDrum(); drum.position.set(18,148,-12); toolGroup.add(drum); slotsKey=''; setDrumSlot(curTool,true); drum.userData.body.rotation.x=drumAng; syncSlots(); }
   rebuildPart();
 }
 /* modelos 3D das ferramentas (ponta da ferramenta na origem do grupo)
@@ -406,11 +438,8 @@ function drillBody(g, d, len, mat){
   const sh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len*0.35,28), mat); sh.position.y=tipH+len*0.65+len*0.175; g.add(sh);
   return tipH+len;
 }
-function setToolModel(t){
-  const key = t ? t.type+'|'+(t.d||'')+'|'+(t.w||'')+'|'+(t.r||'') : 'none';
-  if(key===curModelKey) return; curModelKey=key;
-  if(toolModel){ toolGroup.remove(toolModel); toolModel.traverse(x=>x.geometry&&x.geometry.dispose()); }
-  const g=new THREE.Group(); toolModel=g; toolGroup.add(g);
+function makeToolModel(t){
+  const g=new THREE.Group();
   const add=(geo,mat,x,y,z,rx=0,ry=0,rz=0,parent=g)=>{ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.rotation.set(rx,ry,rz); parent.add(m); return m; };
   const type=t?t.type:'none';
   if(machine==='torno'){
@@ -498,6 +527,31 @@ function setToolModel(t){
     add(new THREE.CylinderGeometry(24,24,8,32), MAT.hold, 0,top+48,0);
     add(new THREE.CylinderGeometry(26,26,40,32), MAT.dark, 0,top+72,0);
   }
+  return g;
+}
+function toolKey(t){ return t ? t.type+'|'+(t.d||'')+'|'+(t.w||'')+'|'+(t.r||'') : 'none'; }
+function setToolModel(t){
+  if(machine==='torno'){ syncSlots(); return; }
+  const key=toolKey(t);
+  if(key===curModelKey) return; curModelKey=key;
+  if(toolModel){ toolGroup.remove(toolModel); toolModel.traverse(x=>x.geometry&&x.geometry.dispose()); }
+  toolModel=makeToolModel(t); toolGroup.add(toolModel); dirty=true;
+}
+/* torno: cada estação da torre carrega a sua ferramenta e gira junto com o tambor */
+let slotsKey='';
+const slotCode=n=>{ const q=String(n).padStart(2,'0'); return q+q; };
+function syncSlots(){
+  if(machine!=='torno'||!drum) return;
+  const ts=[]; for(let n=1;n<=8;n++) ts.push(toolOf(slotCode(n)));
+  const k=ts.map(toolKey).join('#'); if(k===slotsKey) return; slotsKey=k;
+  const body=drum.userData.body, u=drum.userData;
+  (u.hold||[]).forEach(w=>{ body.remove(w); w.traverse(x=>x.geometry&&x.geometry.dispose()); }); u.hold=[];
+  ts.forEach((t,i)=>{
+    if(u.stubs[i]) u.stubs[i].visible=!t;
+    if(!t) return;
+    const w=new THREE.Group(); w.rotation.x=i*2*Math.PI/8;
+    const m=makeToolModel(t); m.position.set(-drum.position.x,-drum.position.y,-drum.position.z); w.add(m); body.add(w); u.hold.push(w);
+  });
   dirty=true;
 }
 
@@ -568,7 +622,7 @@ function placeTool(p, code){
   const sh=shiftFn({tool:code!==undefined?code:curTool, row:-1, hlen:false})||{x:0,y:0,z:0};
   placePhys({x:p.x+sh.x, y:(p.y||0)+sh.y, z:p.z+sh.z}, code);
 }
-function setToolCode(code){ if(!ok) return; curTool=code; setToolModel(toolOf(code)); setDrumSlot(code); placePhys(toolPhys, code); }
+function setToolCode(code){ if(!ok) return; curTool=code; slotsKey=''; setToolModel(toolOf(code)); setDrumSlot(code); placePhys(toolPhys, code); }
 
 /* medições: folga entre a ponta e a peça (calibrador) e diâmetro torneado (paquímetro) */
 function gaps(q, code){
@@ -700,6 +754,7 @@ function loop(){
     if(machine==='torno') partGroup.rotation.x=spinAngle; else if(toolModel) toolModel.rotation.y=spinAngle;
     dirty=true;
   }
+  if(follow&&toolGroup){ const q=toolGroup.position, f=Math.min(1,dt*5); cam.tx+=(q.x-cam.tx)*f; cam.ty+=(q.y-cam.ty)*f; cam.tz+=(q.z-cam.tz)*f; dirty=true; }
   if(drum){ const d=drumTarget-drumAng; if(Math.abs(d)>1e-3){ drumAng+=d*Math.min(1,dt*6); drum.userData.body.rotation.x=drumAng; dirty=true; } }
   const cutting = !!anim && !anim.hold && carved>lastCarved; lastCarved=carved;
   if(tickFx(dt, cutting||manualCut>0) || coolOn) dirty=true;

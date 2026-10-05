@@ -199,3 +199,4 @@
 .ro-mpg .hand{width:58px;height:58px}
 .ss-off .ss-crt,.ss-off .ss-softkeys{filter:brightness(.12)}
 .ss-off .ro-grid,.ss-off .ro-ymill,.ss-off #kbd,.ss-off .ro-mpg,.ss-off #opStart,.ss-off #opHold{pointer-events:none;opacity:.55}
+body > #simPanel.ss{display:none!important}

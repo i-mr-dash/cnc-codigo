@@ -200,3 +200,10 @@ code,.mono{font-family:var(--mono)}
 .cola-grid .acard .k{font-size:16px}
 body > #simPanel{display:none}
 #modalTools,#modalStock{z-index:61}
+
+/* controle de câmera sobre o 3D */
+.cam-pad{position:absolute;right:8px;bottom:8px;z-index:3;display:grid;grid-template-columns:repeat(3,30px);grid-auto-rows:30px;gap:3px;touch-action:none}
+.cam-pad button{border:1px solid #3a4a5c;border-radius:5px;background:rgba(16,24,36,.82);color:#dfe9f5;font:700 13px system-ui;cursor:pointer;padding:0;line-height:1}
+.cam-pad button:hover{background:rgba(40,60,86,.95)}.cam-pad button:active,.cam-pad button.on{background:#ffc21a;color:#10161f}
+.cam-pad [data-c=up]{grid-column:1}.cam-pad [data-c=in]{grid-column:3}
+.simpanel.mode2d .cam-pad,.simpanel.no3d .cam-pad{display:none}
