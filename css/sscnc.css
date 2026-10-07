@@ -200,3 +200,16 @@
 .ss-off .ss-crt,.ss-off .ss-softkeys{filter:brightness(.12)}
 .ss-off .ro-grid,.ss-off .ro-ymill,.ss-off #kbd,.ss-off .ro-mpg,.ss-off #opStart,.ss-off #opHold{pointer-events:none;opacity:.55}
 body > #simPanel.ss{display:none!important}
+
+/* ---- tela de jogo ocupa a largura toda: mais espaço para a simulação ---- */
+#screen-play,#screen-bench{max-width:none;padding-left:12px;padding-right:12px}
+@media(min-width:1300px) and (orientation:landscape){
+  #screen-play .play-grid,#screen-bench .play-grid{grid-template-columns:minmax(0,1fr) clamp(380px,24vw,470px);gap:12px}
+  #screen-play .simslot>#simPanel.ss,#screen-bench .simslot>#simPanel.ss{grid-template-columns:minmax(0,1.9fr) minmax(360px,1fr)}
+}
+#simPanel.ss .ss-mach.ro{grid-template-columns:minmax(0,1fr)}
+@media(min-width:1100px) and (orientation:landscape){
+  #screen-play .simslot>#simPanel.ss,#screen-bench .simslot>#simPanel.ss{grid-template-areas:"view unit" "view mach" "kbd mach";grid-template-rows:auto 1fr auto}
+  #simPanel.ss .ss-unit{align-self:start}
+  #simPanel.ss .ss-mach.ro{align-self:start}
+}

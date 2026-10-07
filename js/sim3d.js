@@ -263,6 +263,7 @@ function placeCamera(){
 function frame(){
   if(machine==='torno'){ const L=M.L, D=M.D; cam.tx=-L/2+12; cam.ty=4; cam.tz=0; cam.dist=Math.max(130, L*2.2+D*1.3); cam.yaw=0.42; cam.pitch=0.32; }
   else { cam.tx=M.x0+M.w/2; cam.ty=-5; cam.tz=-(M.y0+M.h/2); cam.dist=Math.max(150,Math.max(M.w,M.h)*2.0); cam.yaw=-0.35; cam.pitch=0.72; }
+  if(camera&&camera.aspect<1.5) cam.dist*=1.5/camera.aspect;      // vista alta/estreita: afasta para a peça caber
 }
 const MAT={};
 function mats(){
