@@ -51,3 +51,24 @@ bolsas G71/G72/G12/G13 → tradutor Mach 9/Siemens → CHEFE: placa completa.
 
 Progresso salvo no navegador (`localStorage`, chave `cnccodigo_v1`); backup em Manual → Exportar save.
 Modo desenvolvedor: 7 cliques no logo (libera tudo).
+
+## CLP Ladder (pasta `clp/`)
+
+Jogo irmão para aprender **Ladder para CLP**, com a mesma progressão (estrelas, XP, patentes, moedas, loja, aula,
+dicas em 3 níveis, explicação depois de 3 tentativas, tutorial com o mascote, CHEFE e Modo Infinito).
+Abra **http://localhost:8124/clp/** (ou o botão **CLP Ladder** no topo do CNC Código).
+
+- **Editor de Ladder**: clique nas células tracejadas para escolher o símbolo (NA, NF, borda P/N, bobina, SET, RESET, TON, TOF, CTU)
+  e o endereço; clique entre as linhas para ligar ramos paralelos.
+- **Máquina**: painel com botões NA/NF, emergência, térmico, chaves e sensores; CLP com LEDs de entrada/saída e chave RUN/STOP;
+  a linha fica verde por onde a energia passa (monitoração online). Cenas com física: esteira com sensor, caixa d'água,
+  cilindro com fins de curso, semáforo, reversão de motor e estrela-triângulo.
+- **Correção por testes automáticos**: o jogo aperta e solta os botões sozinho e confere as saídas — vale qualquer solução que funcione.
+- Endereços no padrão Siemens (I0.0, Q0.0, M0.0, T1, C1); o Manual traz a tabela para LOGO!, Allen-Bradley, Schneider, WEG e Mitsubishi.
+
+**Trilha** — 18 fases: NA + bobina → NF → série (E) → paralelo (OU) → selo → botões NF/emergência/térmico (falha segura) →
+memórias M → SET/RESET → intertravamento → borda P (um botão liga/desliga) → TON → TOF → pisca-pisca → CTU →
+semáforo → cilindro automático → caixa d'água → CHEFE: estrela-triângulo. **Bancada livre** abre na fase 4.
+
+Arquivos: `clp/js/ladder.js` (motor: varredura, temporizadores, contadores, testes, desenho SVG), `clp/js/levels.js` (fases e Modo Infinito),
+`clp/js/plant.js` (máquina), `clp/js/game.js` (interface), `clp/css/clp.css`. Progresso salvo em `localStorage` (`clpladder_v1`).

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CLP Ladder</title>
+<meta name="theme-color" content="#0d1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CLP Ladder">
+<link rel="icon" href="../icon.png">
+<link rel="apple-touch-icon" href="../icon.png">
+<link rel="stylesheet" href="../css/style.css?v=1">
+<link rel="stylesheet" href="../css/design-shell.css?v=1">
+<link rel="stylesheet" href="../css/design-play.css?v=1">
+<link rel="stylesheet" href="css/clp.css?v=1">
+</head>
+<body data-theme="steel">
+<a href="#app" class="skip">Pular para o conteúdo</a>
+
+<header id="topbar">
+  <div class="brand">
+    <button class="logo" id="logoMark" type="button" aria-label="CLP Ladder">L</button>
+    <div>
+      <div class="brand-title">CLP <span>LADDER</span></div>
+      <div class="brand-sub" id="rankLabel">Aprendiz de Automação</div>
+    </div>
+  </div>
+  <div class="xpwrap" role="group" aria-label="Experiência">
+    <div class="xpbar" id="xpBar" role="progressbar" aria-label="Progresso de experiência" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="xpFill"></i></div>
+    <div class="xptxt"><span id="xpTxt">0 / 150 XP</span></div>
+  </div>
+  <div class="stats">
+    <div class="stat" title="Moedas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg><span class="vh">Moedas:</span><span id="coinTxt">0</span></div>
+    <div class="stat" title="Fichas de dica"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3 11c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a6 6 0 0 0-3-11z"/></svg><span class="vh">Fichas de dica:</span><span id="hintTxt">3</span></div>
+    <div class="stat" title="Estrelas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.9 6.4.6-4.8 4.3 1.4 6.3L12 17l-5.6 3.1 1.4-6.3-4.8-4.3 6.4-.6z"/></svg><span class="vh">Estrelas:</span><span id="starTxt">0</span></div>
+  </div>
+  <nav class="navbtns">
+    <a class="btn ghost" href="../" title="Voltar para o CNC Código">⇄ CNC</a>
+    <button class="btn ghost" id="navMap">Mapa</button>
+    <button class="btn ghost" id="navBench" title="Bancada livre: monte qualquer ladder e teste">Bancada</button>
+    <button class="btn ghost" id="navShop">Loja</button>
+    <button class="btn ghost" id="navHelp">Manual</button>
+  </nav>
+</header>
+
+<main id="app" tabindex="-1">
+
+  <section id="screen-map" class="screen active">
+    <div class="map-head">
+      <h1 id="mapTitle">Trilha do CLP — Ladder</h1>
+      <p id="mapStats"></p>
+    </div>
+    <div id="mapTrack" class="map-track"></div>
+    <div class="map-foot"><div class="unlock-strip" id="unlockStrip"></div></div>
+  </section>
+
+  <section id="screen-play" class="screen">
+    <div class="play-head">
+      <button class="btn ghost sm" id="btnBack">‹ Mapa</button>
+      <div class="lv-title">
+        <h1 id="lvName">Fase</h1>
+        <span id="lvSub">objetivo</span>
+      </div>
+      <div class="play-meta">
+        <button class="chip chipbtn" id="btnAula" title="Rever a aula desta fase">Aula</button>
+        <button class="chip chipbtn" id="btnCola" title="Tudo que você já aprendeu">Cola</button>
+        <span class="chip" id="chipTry">Tentativas: 0</span>
+        <span class="chip" id="chipTime">00:00</span>
+      </div>
+    </div>
+    <div class="viewtabs" role="tablist" aria-label="Alternar entre programa e máquina">
+      <button class="vt on" role="tab" aria-selected="true" data-view="prog">Programa</button>
+      <button class="vt" role="tab" aria-selected="false" data-view="sim">Máquina<i class="vt-led" aria-hidden="true"></i></button>
+    </div>
+    <div class="play-grid" data-view="prog">
+      <div class="simslot plantbox" id="plantBox"></div>
+      <div class="panel tablepanel">
+        <div class="panel-bar">
+          <span>Programa Ladder</span>
+          <span class="hintline" id="tipLine"></span>
+        </div>
+        <div class="brief" id="briefLine"></div>
+        <div class="ladder" id="ladderBox"></div>
+        <details class="symtab"><summary>Tabela de símbolos (E/S)</summary><div id="symTable"></div></details>
+        <div class="actions">
+          <button class="btn primary" id="btnCheck">Verificar</button>
+          <button class="btn primary" id="btnNext" hidden>Próxima fase ›</button>
+          <button class="btn" id="btnHint" title="Nível 1 é grátis; aprofundar gasta uma ficha 💡">Dica</button>
+          <button class="btn" id="btnReveal" title="Monta a próxima célula errada. A fase passa a valer no máximo 2 ★.">Revelar célula <small>(40 🪙)</small></button>
+          <button class="btn danger" id="btnExplain">Explicar</button>
+        </div>
+        <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+        <div class="hintbox" id="hintBox"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-bench" class="screen">
+    <div class="map-head">
+      <h1>Bancada livre</h1>
+      <p>Monte qualquer ladder e teste no CLP: 8 entradas, 8 saídas, memórias, temporizadores e contadores. Fica salvo no navegador.</p>
+    </div>
+    <div class="viewtabs" role="tablist" aria-label="Alternar entre editor e máquina">
+      <button class="vt on" role="tab" aria-selected="true" data-view="prog">Editor</button>
+      <button class="vt" role="tab" aria-selected="false" data-view="sim">Máquina<i class="vt-led" aria-hidden="true"></i></button>
+    </div>
+    <div class="play-grid" data-view="prog">
+      <div class="simslot plantbox" id="benchPlant"></div>
+      <div class="panel tablepanel">
+        <div class="panel-bar"><span>Editor</span>
+          <div class="mini-tools"><button class="mini" id="benchAdd">+ Linha</button><button class="mini" id="benchClear">Limpar tudo</button></div></div>
+        <div class="ladder" id="benchBox"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-shop" class="screen">
+    <div class="map-head"><h1>Oficina / Loja</h1><p>Gaste moedas em coisas que facilitam a vida do programador de CLP.</p></div>
+    <div class="shop-grid" id="shopGrid"></div>
+  </section>
+
+  <section id="screen-help" class="screen">
+    <div class="map-head"><h1>Manual do Ladder</h1><p>Consulta rápida: símbolos, endereços, padrões clássicos e as diferenças entre fabricantes.</p></div>
+    <div class="help-grid" id="helpGrid"></div>
+  </section>
+</main>
+
+<!-- seletor de elemento -->
+<div class="picker" id="picker" role="dialog" aria-label="Escolher elemento" hidden>
+  <div class="pk-h"><span id="pkTitle">Célula</span><button class="mini" id="pkClose" aria-label="Fechar">✕</button></div>
+  <div class="pk-sec">Símbolo</div>
+  <div class="pk-types" id="pkTypes"></div>
+  <div class="pk-sec" id="pkAdrLbl">Endereço</div>
+  <div class="pk-adrs" id="pkAdrs"></div>
+  <div class="pk-par" id="pkPar" hidden><label><span id="pkParLbl">PT (s)</span> <input type="number" id="pkParIn" min="0" step="0.5"></label></div>
+</div>
+
+<!-- ============ MODAIS ============ -->
+<div class="overlay" id="overlay" aria-hidden="true"></div>
+<div class="modal" id="modalResult" role="dialog" aria-modal="true" aria-labelledby="resTitle">
+  <div class="stars" id="resStars" role="img" aria-label="0 de 3 estrelas"><span aria-hidden="true">☆</span><span aria-hidden="true">☆</span><span aria-hidden="true">☆</span></div>
+  <div class="resline" id="resLine"></div>
+  <h2 id="resTitle">Programa aprovado!</h2>
+  <p id="resText"></p>
+  <div class="rewards" id="resRewards"></div>
+  <div class="res-prog" id="resProg"></div>
+  <div class="modal-actions">
+    <button class="btn ghost" id="resRepeat">Ver a máquina rodando</button>
+    <button class="btn primary" id="resNext">Próxima fase ›</button>
+  </div>
+</div>
+<div class="modal wide" id="modalAula" role="dialog" aria-modal="true" aria-labelledby="aulaTitle">
+  <div class="aula-kick">AULA</div>
+  <h2 id="aulaTitle">Aula</h2>
+  <div id="aulaBody" class="explain-body"></div>
+  <div class="modal-actions"><button class="btn primary" id="aulaClose">Entendi, bora programar ›</button></div>
+</div>
+<div class="modal wide" id="modalExplain" role="dialog" aria-modal="true" aria-labelledby="expTitle">
+  <h2 id="expTitle">Como montar, linha a linha</h2>
+  <div id="explainBody" class="explain-body"></div>
+  <div class="modal-actions">
+    <button class="btn ghost" id="expClose">Fechar e tentar de novo</button>
+    <button class="btn danger" id="expFill">Desistir e ver a resposta <small>(fase fica em 1 ★)</small></button>
+  </div>
+</div>
+<div class="modal wide" id="modalUnlock" role="dialog" aria-modal="true" aria-labelledby="unTitle">
+  <h2 id="unTitle">Desbloqueado!</h2>
+  <div id="unBody" class="explain-body"></div>
+  <div class="modal-actions"><button class="btn primary" id="unClose">Beleza</button></div>
+</div>
+<div id="tutor" class="tutor">
+  <div class="spot" id="tutSpot"></div>
+  <div class="bubble" id="tutBubble" role="dialog" aria-modal="false" aria-labelledby="tutStep" aria-describedby="tutText">
+    <div class="bstep" id="tutStep">PASSO 1</div>
+    <div id="tutText"></div>
+    <div class="berr" id="tutErr" role="alert"></div>
+    <button class="btn ghost sm" id="tutGive" style="display:none">Mostrar a resposta</button>
+    <div class="bactions">
+      <button class="btn ghost sm" id="tutSkip">Pular</button>
+      <button class="btn ghost sm" id="tutBack">‹ Voltar</button>
+      <button class="btn primary sm" id="tutNext">Próximo ›</button>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+<canvas id="fx"></canvas>
+<script src="js/ladder.js?v=1"></script>
+<script src="js/levels.js?v=1"></script>
+<script src="js/plant.js?v=1"></script>
+<script src="../js/mascot.js?v=1"></script>
+<script src="js/game.js?v=1"></script>
+</body>
+</html>
