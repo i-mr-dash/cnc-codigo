@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="css/code.css?v=1">
 <link rel="stylesheet" href="css/design-shell.css?v=1">
 <link rel="stylesheet" href="css/design-play.css?v=1">
-<link rel="stylesheet" href="css/sscnc.css?v=1">
+<link rel="stylesheet" href="css/sscnc.css?v=2">
 </head>
 <body data-theme="steel">
 <a href="#app" class="skip">Pular para o conteúdo</a>
@@ -103,13 +103,14 @@
           <span>Programa</span>
           <span class="hintline" id="tipLine"></span>
         </div>
-        <div class="tablewrap"><table id="progTable"></table></div>
+        <div class="tablewrap"><div class="oper-list" id="operList" hidden></div><table id="progTable"></table></div>
         <div class="actions">
           <button class="btn primary" id="btnCheck">Verificar</button>
           <button class="btn primary" id="btnNext" hidden>Próxima fase ›</button>
           <button class="btn" id="btnHint" title="Nível 1 é grátis; aprofundar gasta uma ficha 💡">Dica</button>
           <button class="btn" id="btnReveal" title="Escreve o próximo bloco errado. A fase passa a valer no máximo 2 ★.">Revelar bloco <small>(40 🪙)</small></button>
           <button class="btn danger" id="btnExplain">Explicar</button>
+          <button class="btn" id="btnTour" hidden title="O Torninho mostra para que serve cada botão do painel">Tour dos botões</button>
         </div>
         <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
         <div class="hintbox" id="hintBox"></div>
@@ -165,11 +166,13 @@
       <span class="mtitle" id="mTitle">TORNO · FANUC 0i</span>
       <button class="mbtn" id="btnStock" title="Dimensões da peça bruta, material e calibrador">Peça bruta</button>
       <button class="mbtn" id="btnTools" title="Montar ferramentas na torre / magazine e preparar a máquina">Ferramentas</button>
+      <button class="mbtn" id="btnQuick" title="Posicionamento rápido do SSCNC: leva a ponta da ferramenta até a face da peça">Posic. rápido</button>
       <span class="crt-tabs" role="tablist">
         <button class="crt-tab on" id="tab3d" role="tab" aria-selected="true">3D</button>
         <button class="crt-tab" id="tab2d" role="tab" aria-selected="false">DESENHO</button>
       </span>
     </div>
+    <div class="oper-bar" id="operBar" hidden></div>
     <div class="crt-view">
       <div id="view3d"></div>
       <canvas id="cv" role="img" aria-label="Desenho técnico da peça"></canvas>
@@ -312,11 +315,11 @@
 <script src="js/vendor/three.min.js"></script>
 <script src="js/codes.js?v=1"></script>
 <script src="js/cnc.js?v=1"></script>
-<script src="js/levels.js?v=1"></script>
-<script src="js/sim3d.js?v=1"></script>
+<script src="js/levels.js?v=2"></script>
+<script src="js/sim3d.js?v=2"></script>
 <script src="js/mascot.js?v=1"></script>
-<script src="js/game.js?v=3"></script>
-<script src="js/panel.js?v=2"></script>
+<script src="js/game.js?v=4"></script>
+<script src="js/panel.js?v=3"></script>
 <script src="js/main.js?v=2"></script>
 </body>
 </html>

@@ -48,6 +48,44 @@ const PART_7044 = {
    ========================================================================= */
 const LEVELS_TORNO = [
 {
+  id:0, oper:true, name:'Ligar e Preparar', sub:'Referenciar, peça, posicionamento rápido', boss:false,
+  brief:'Opere o simulador como no SSCNC: ligar, referenciar os eixos, prender a peça, zerar a ferramenta e usinar.',
+  tip:'Siga a missão: o botão da vez pisca no painel. Dica explica o passo; Tour dos botões mostra o painel inteiro.',
+  aula:{
+    intro:'Antes de escrever programas, o operador precisa <b>preparar a máquina</b>. No SSCNC (torno Romi G260, comando FANUC 0i Mate-TB) a ordem é sempre a mesma: '+
+      '<b>1)</b> ligar (<b>CNC ON</b>, soltar a <b>emergência</b>, fechar a porta, <b>MACHINE ON</b>, <b>RESET</b>); '+
+      '<b>2)</b> <b>referenciar</b> os eixos — <b>HOME</b> e <b>CYCLE START</b> uma vez para o X e outra para o Z: a máquina vai até o ponto de referência e passa a saber onde está; '+
+      '<b>3)</b> colocar a <b>peça bruta</b> e prender a placa; '+
+      '<b>4)</b> chamar a ferramenta pelo <b>MDI</b> (T0101) e levá-la até a face com o <b>posicionamento rápido</b>; '+
+      '<b>5)</b> <b>medir</b>: OFFSET SETTING → CORRET → GEOM, <b>Z0</b> [MEDIR] e <b>X</b> + diâmetro [MEDIR]; '+
+      '<b>6)</b> <b>AUTO</b> e <b>CYCLE START</b>.',
+    codes:['G28','T'],
+    tips:['<b>Referenciar</b> (HOME / ZRN) é obrigatório toda vez que a máquina liga ou depois de uma emergência — sem isso o CYCLE START dá ALM 224.',
+          'O ponto de referência é o <b>fim do curso positivo</b> dos eixos: depois do HOME, saia em <b>−X</b> e <b>−Z</b>. Se o eixo já estiver em cima do ponto, afaste antes de referenciar.',
+          'O <b>posicionamento rápido</b> do SSCNC encosta a ponta na face da peça: no <b>extremo de X</b> (diâmetro) ou no <b>zero de X</b> (centro). Na máquina real você faz isso devagar com a manivela (MPG).',
+          'O <b>X</b> do torno é em <b>diâmetro</b>: com a ponta no diâmetro de 40 mm, digite <b>X40</b> e [MEDIR].',
+          'Medir errado = a peça sai no lugar errado. O jogo avisa com <b>NADA FOI USINADO</b> ou <b>FORA DO LUGAR</b>.']
+  },
+  part:{stock:[40,50], face:0},
+  rows:[
+    g('','O0001 (TESTE DO ZERO)','Programa que roda no fim da missão, para provar que a ferramenta foi medida certo'),
+    g('N10','G21 G40 G54 G90 G95','Bloco de segurança'),
+    g('N20','G28 U0.','Recolhe X para a referência'),
+    g('N30','G28 W0.','Recolhe Z para a referência'),
+    g('N40','T0101 (DESBASTE)','Ferramenta 01 com o corretor 01 — o que você mediu'),
+    g('N50','G97 S1200 M3','1200 rpm, horário'),
+    g('N60','G0 X42. Z0.','Encosta na altura da face'),
+    g('N70','G1 X-1. F0.15','Faceia até o centro'),
+    g('N80','G0 X36. Z2.','Posiciona para o passe'),
+    g('N90','G1 Z-20. F0.2','Torneia Ø36 por 20 mm'),
+    g('N100','G1 X42.','Sai da peça'),
+    g('N110','M5','Desliga o fuso'),
+    g('N120','G28 U0.','Recolhe X'),
+    g('N130','G28 W0.','Recolhe Z'),
+    g('N140','M30','Fim de programa')
+  ]
+},
+{
   id:1, name:'Liga, Desliga', sub:'M3, M4 e M5 — o fuso', boss:false,
   brief:'Seu primeiro programa: ligar e desligar o eixo-árvore.',
   tip:'Cada linha é uma ordem. M3 liga horário, M4 anti-horário, M5 desliga.',

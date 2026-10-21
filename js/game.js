@@ -81,7 +81,7 @@ const has = id => S.dev || S.unlocked.includes(id) || S.owned.includes(id);
 const done = k => (S.stars[k]||0) > 0;
 const mmss = s => String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 const fmt = CNC.fmtN;
-function toast(msg, ms=2600){ const t=$('#toast'); t.innerHTML=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),ms); }
+function toast(msg, ms=2600){ const t=$('#toast'); t.innerHTML='<span>'+msg+'</span>'; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),ms); }
 function countUp(el,from,to,ms=900){
   if(REDUCED||from===to){ el.textContent=to; return; }
   const t0=performance.now(); (function f(t){ const k=Math.min(1,(t-t0)/ms); el.textContent=Math.round(from+(to-from)*k); if(k<1) requestAnimationFrame(f); })(t0);
@@ -168,7 +168,7 @@ function isUnlocked(lv){
   const i=LEVELS.indexOf(lv);
   if(i<=0) return true;
   if(S.stars[skey(lv)]) return true;
-  if(!done(skey(LEVELS[i-1]))) return false;
+  if(!done(skey(LEVELS[i-1])) && !LEVELS[i-1].oper) return false;   // a fase de operação (00) não tranca a fase 1
   if(lv.boss) return starsForMachine(S.machine)>=bossStarsFor(S.machine);
   return true;
 }
@@ -359,19 +359,23 @@ function startLevel(lv){
   $('#btnCheck').hidden=false; $('#btnNext').hidden=true;
   $('#btnReveal').style.display = has('reveal')?'':'none';
   $('#btnAula').style.display = lv.aula?'':'none';
+  $('#btnHint').hidden=false; $('#btnCheck').hidden=!!lv.oper; $('#btnExplain').hidden=!!lv.oper; $('#btnTour').hidden=!lv.oper;
+  if(lv.oper) $('#btnReveal').style.display='none';
+  $('#chipTry').hidden=!!lv.oper;
   SIM.focus=-1;
   buildTable(lv);
   syncExplainBtn();
-  setView('#screen-play','prog');
+  setView('#screen-play',lv.oper?'sim':'prog');   // fase 00: começa na máquina (a missão aparece em cima do 3D)
   show('play');
   SIM.rowText = r => { const row=P.lv.rows[r]; return row ? (row.given?row.code:(valOf(r)||'')) : ''; };
   SIM.rowN = r => (P.lv.rows[r]&&P.lv.rows[r].n)||'';
   SIM.rowEl = r => $(`#progTable tr[data-r="${r}"]`);
   rerun(true);
+  operSetup(lv);
   clearInterval(timer); $('#chipTime').textContent='00:00';
   timer=setInterval(()=>{ $('#chipTime').textContent=mmss(Math.floor((Date.now()-P.t0)/1000)); },1000);
   const k=skey(lv);
-  if(lv.aula && !S.aula[k]){ openAula(lv, ()=>{ S.aula[k]=1; save(); maybeTutorial(); }); }
+  if(lv.aula && !S.aula[k]){ openAula(lv, ()=>{ S.aula[k]=1; save(); maybeTutorial(); if(lv.oper) setTimeout(()=>startTutorial(TOUR),350); }); }
   else maybeTutorial();
 }
 function maybeTutorial(){ if(!S.tutorial && P && P.lv.id===1 && !P.lv.endless) setTimeout(startTutorial,350); }
@@ -379,6 +383,7 @@ function resumeLevel(){
   if(!P) return;
   if(P.pausedAt){ P.t0+=Date.now()-P.pausedAt; P.pausedAt=0; }
   show('play'); rerun(true);
+  if(P.lv.oper && !P.won && !operTick) operSetup(P.lv);
   clearInterval(timer); timer=setInterval(()=>{ $('#chipTime').textContent=mmss(Math.floor((Date.now()-P.t0)/1000)); },1000);
 }
 function buildTable(lv){
@@ -495,6 +500,7 @@ function syncExplainBtn(){
 
 /* ---------------- dicas ---------------- */
 $('#btnHint').onclick=()=>{
+  if(P&&P.lv.oper){ operHint(); return; }
   const c=firstBad();
   if(!c){ toast('Nada errado — clique em Verificar!'); return; }
   const key=c.r, tier=HINT_TIER[key]||0, row=c.row, m=P.lv.ctrl==='multi'?'multi':P.lv.machine;
@@ -755,6 +761,7 @@ function renderHelp(){
     <li>Botões giratórios: rotação do fuso 50–120 %, avanço 0–120 %.</li></ul></div>
   <div class="card wide"><h3>Passo a passo no painel do SSCNC — torno Romi G260 (Fanuc 0i)</h3>${window.procHtml('torno')}<p>Com pressa: <b>Ferramentas → Preparar máquina (atalho)</b> faz os passos 2 a 6 de uma vez.</p></div>
   <div class="card wide"><h3>Passo a passo — centro de usinagem (Fanuc 0i)</h3>${window.procHtml('fresa')}</div>
+  <div class="card wide"><h3>Para que serve cada botão — painel SSCNC Romi G260 (FANUC 0i Mate-TB)</h3><ul>${TOUR.map(t=>`<li>${t.txt}</li>`).join('')}</ul><p>Na <b>Fase 00</b> o Torninho mostra cada um no painel (botão <b>Tour dos botões</b>).</p></div>
   <div class="card"><h3>Fórmulas</h3><ul>
     <li>Rotação: <b>N = Vc × 1000 ÷ (π × D)</b></li><li>Velocidade de corte: <b>Vc = π × D × N ÷ 1000</b></li>
     <li>Avanço da fresa: <b>Vf = fz × z × rpm</b></li><li>Macho (G84): <b>F = rpm × passo</b></li>
@@ -864,6 +871,7 @@ function benchState(){
 }
 function benchPart(){ const b=benchState(); return JSON.parse(JSON.stringify(b.stock[b.machine])); }
 function openBench(){
+  if(P&&P.lv.oper&&!P.won) operSetup({});   // simulador livre começa com a máquina ligada
   const b=benchState();
   $('#benchMachine').value=b.machine; $('#benchCode').value=b.code;
   SIM.rowText = r => (benchLinesArr[r]||{}).text||'';
@@ -915,7 +923,7 @@ const TUT=[
  {sel:'#simPanel .mview', txt:()=>'Este é o <b>simulador</b>, montado igual ao <b>SSCNC</b> da escola (Fanuc 0i): aqui a máquina e a peça em <b>3D</b> — ela é usinada de verdade pelo seu código. Em <b>Peça bruta</b> você muda as dimensões do material; em <b>Ferramentas</b> monta a '+(TUTM().fresa?'magazine (fresa de topo, broca, macho, escareador…).':'torre (desbaste, acabamento, bedame, broca, rosca…).')},
  {sel:'#simPanel .ss-unit', txt:'A <b>tela do comando</b>, com as <b>softkeys</b> embaixo dela. As teclas <b>POS</b>, <b>PROG</b>, <b>OFFSET/SETTING</b> e <b>MESSAGE</b> (no teclado MDI) trocam a página: posição dos eixos, programa rodando, <b>corretores e zero-peça</b> e alarmes. Tudo que você digita no teclado aparece na linha <b>&gt;</b> (o buffer) antes de apertar INPUT, INSERT ou ALTER.'},
  {sel:'#kbd', txt:'O <b>teclado MDI</b>: letras e números (SHIFT troca para a letra pequena de cada tecla), <b>EOB</b> = fim de bloco, <b>CAN</b> apaga, <b>INPUT</b> grava valores nos corretores, <b>ALTER / INSERT / DELETE</b> editam o programa no modo EDIT (ou o bloco no MDI), as setas movem o cursor.'},
- {sel:'#opPanel', txt:()=>'O <b>painel de operação</b> é o do torno Romi G260 do SSCNC. Sequência: <b>1)</b> <b>CNC ON</b>, solte a emergência, feche a porta, <b>MACHINE ON</b>, <b>RESET</b>; <b>2)</b> <b>HOME</b> e, para cada eixo ('+(TUTM().fresa?'<b>+X</b>, <b>+Y</b>, <b>+Z</b>':'<b>+X</b> e <b>+Z</b>')+'), escolha o eixo e aperte <b>CYCLE START</b>; <b>3)</b> meça ferramentas e zero-peça em <b>OFS/SET → CORRET → GEOM / TRAB</b> usando <b>JOG</b> e <b>MPG</b> (o botão <b>HELP</b> do teclado mostra o passo a passo completo; ou use o atalho <b>Ferramentas → Preparar máquina</b>); <b>4)</b> <b>AUTO</b> e <b>CYCLE START</b>. No <b>MDI</b> você digita um bloco solto (ex.: T0101).'},
+ {sel:'#opPanel', txt:()=>'O <b>painel de operação</b> é o do torno Romi G260 do SSCNC. Sequência: <b>1)</b> <b>CNC ON</b>, solte a emergência, feche a porta, <b>MACHINE ON</b>, <b>RESET</b>; <b>2)</b> <b>HOME</b> e, para cada eixo ('+(TUTM().fresa?'<b>+X</b>, <b>+Y</b>, <b>+Z</b>':'<b>+X</b> e <b>+Z</b>')+'), escolha o eixo e aperte <b>CYCLE START</b>; <b>3)</b> meça ferramentas e zero-peça em <b>OFS/SET → CORRET → GEOM / TRAB</b> — o jeito rápido é o botão <b>Posic. rápido</b> (como no SSCNC), ou encostando com <b>JOG</b> e <b>MPG</b> (o botão <b>HELP</b> do teclado mostra o passo a passo completo; ou use o atalho <b>Ferramentas → Preparar máquina</b>); <b>4)</b> <b>AUTO</b> e <b>CYCLE START</b>. No <b>MDI</b> você digita um bloco solto (ex.: T0101).'},
  {sel:'#progTable', txt:'Aqui está o <b>programa</b>. Cada linha é um <b>bloco</b>. Linhas cinza já vêm prontas; nas que têm campo, <b>você escreve o código</b>. A coluna do meio diz o que o bloco tem que fazer.'},
  {sel:'#progTable tr[data-r="1"]', txt:()=>'Clique numa linha e a tela do comando mostra como a máquina fica <b>depois</b> daquele bloco. '+TUTM().row1},
  {sel:'#progTable tr[data-r="2"]', gate:true, check:()=>{
@@ -927,26 +935,27 @@ const TUT=[
  {sel:'#btnAula', txt:'A <b>Aula</b> da fase fica aqui, e a <b>Cola</b> lista todos os códigos que você já aprendeu. O <b>Manual</b> (lá em cima) tem tudo do livro.'},
  {sel:'#btnCheck', txt:()=>`Complete os blocos que faltam${TUTM().rest} e clique em <b>Verificar</b>. Depois referencie a máquina e rode com <b>CYCLE START</b> ${TUTM().end}`}
 ];
-let tstep=0, tutTarget=null, tutFails=0;
-function startTutorial(){
+let tstep=0, tutTarget=null, tutFails=0, TL=TUT;
+function startTutorial(list){
   if(!$('#screen-play').classList.contains('active')) return;
+  TL=Array.isArray(list)?list:TUT;
   tstep=0; tutFails=0; $('#tutor').classList.add('on'); if(window.Mascot) Mascot.init();
   addEventListener('scroll',tutReflow,true); addEventListener('resize',tutReflow); tutShow();
 }
 function tutReflow(){ requestAnimationFrame(()=>tutPlace(tutTarget)); }
 function tutShow(){
-  const s=TUT[tstep], el=$(s.sel); if(!el){ endTutorial(); return; }
+  const s=TL[tstep], el=$(s.sel); if(!el){ if(TL!==TUT && tstep<TL.length-1){ tstep++; tutShow(); } else endTutorial(); return; }
   setView('#screen-play', el.closest('#simPanel')?'sim':'prog');
   tutTarget=el; tutFails=0;
-  $('#tutStep').textContent=`PASSO ${tstep+1}/${TUT.length}`; $('#tutText').innerHTML=typeof s.txt==='function'?s.txt():s.txt; $('#tutErr').textContent='';
+  $('#tutStep').textContent=`${TL===TUT?'PASSO':'BOTÃO'} ${tstep+1}/${TL.length}`; $('#tutText').innerHTML=typeof s.txt==='function'?s.txt():s.txt; $('#tutErr').textContent='';
   $('#tutGive').style.display='none'; $('#tutBack').disabled=tstep===0;
-  $('#tutNext').textContent=s.gate?'Conferir':(tstep===TUT.length-1?'Começar':'Próximo ›');
+  $('#tutNext').textContent=s.gate?'Conferir':(tstep===TL.length-1?'Começar':'Próximo ›');
   $('#tutor').classList.toggle('interactive',!!s.gate);
   const r=el.getBoundingClientRect(); if(r.top<80||r.bottom>innerHeight-40) el.scrollIntoView({block:'center'});
   if(s.gate){ const inp=el.querySelector('input'); if(inp) setTimeout(()=>inp.focus({preventScroll:true}),60); }
   requestAnimationFrame(()=>requestAnimationFrame(()=>tutPlace(el)));
   beep(520,.05);
-  if(window.Mascot) Mascot.say((tstep===0?'Oi! Eu sou o Torninho, e vou te guiar nesse tutorial. ':'')+$('#tutText').innerHTML);
+  if(window.Mascot) Mascot.say((tstep===0?(TL===TUT?'Oi! Eu sou o Torninho, e vou te guiar nesse tutorial. ':'Oi! Eu sou o Torninho. Vou te mostrar para que serve cada botão do simulador. '):'')+$('#tutText').innerHTML);
 }
 function tutPlace(el){
   if(!el||!$('#tutor').classList.contains('on')) return;
@@ -957,17 +966,127 @@ function tutPlace(el){
   b.style.left=Math.max(10,Math.min(bx,innerWidth-bb.width-10))+'px'; b.style.top=Math.max(10,Math.min(by,innerHeight-bb.height-10))+'px';
 }
 $('#tutNext').onclick=()=>{
-  const s=TUT[tstep];
+  const s=TL[tstep];
   if(s.gate){ const res=s.check(); if(!res.ok){ tutFails++; sndErr(); $('#tutErr').innerHTML=res.msg; if(window.Mascot) Mascot.say('Quase! '+res.msg);
       const b=$('#tutBubble'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
       if(tutFails>=2) $('#tutGive').style.display=''; tutPlace(tutTarget); return; }
     sndOk(); rerun(); }
-  tstep++; tstep>=TUT.length?endTutorial():tutShow();
+  tstep++; tstep>=TL.length?endTutorial():tutShow();
 };
 $('#tutGive').onclick=()=>{ const el=$('#progTable input[data-r="2"]'); if(el){ el.value=TUTM().code; el.classList.add('ok'); } $('#tutErr').textContent=''; $('#tutGive').style.display='none'; };
 $('#tutBack').onclick=()=>{ if(tstep>0){ tstep--; tutShow(); } };
-$('#tutSkip').onclick=()=>{ endTutorial(); toast('Sem problema — o Manual tem "Rever o tutorial".',3500); };
-function endTutorial(){ if(window.Mascot) Mascot.stop(); $('#tutor').classList.remove('on','interactive'); removeEventListener('scroll',tutReflow,true); removeEventListener('resize',tutReflow); tutTarget=null; S.tutorial=true; save(); }
+$('#tutSkip').onclick=()=>{ const tour=TL!==TUT; endTutorial(); toast(tour?'Sem problema — o botão <b>Tour dos botões</b> repete quando quiser.':'Sem problema — o Manual tem "Rever o tutorial".',3500); };
+function endTutorial(){ if(window.Mascot) Mascot.stop(); $('#tutor').classList.remove('on','interactive'); removeEventListener('scroll',tutReflow,true); removeEventListener('resize',tutReflow); tutTarget=null;
+  if(TL===TUT){ S.tutorial=true; save(); } else if(P&&P.lv.oper){ setView('#screen-play','sim'); operRender(true); } }
+
+/* =========================================================================
+   TOUR DOS BOTÕES — para que serve cada botão do simulador (SSCNC · Romi G260 · FANUC 0i Mate-TB)
+   ========================================================================= */
+const TOUR=[
+ {sel:'#simPanel .mview', txt:'Esta é a <b>máquina</b> em 3D (arraste para girar, roda do mouse para zoom). Em cima ficam os botões do <b>SSCNC</b>: <b>Peça bruta</b> (o material: diâmetro, comprimento, sobremetal), <b>Ferramentas</b> (montar a torre), <b>Posic. rápido</b> (leva a ponta da ferramenta até a face da peça) e as abas <b>3D</b> / <b>DESENHO</b>.'},
+ {sel:'#btnQuick', txt:'<b>Posic. rápido</b>: no SSCNC é o ícone de <i>Ajustar parâmetros da peça</i>. A ponta vai direto para a face, no <b>extremo de X</b> (diâmetro) ou no <b>zero de X</b> (centro). Daí você mede em OFFSET → GEOM sem precisar encostar com a manivela.'},
+ {sel:'#btnCaliper', txt:'<b>Paquímetro</b>: mede o diâmetro que a ferramenta acabou de tornear (para o zeramento em X feito à mão). <b>Percurso</b> mostra o caminho da ferramenta e <b>Centralizar</b> volta a vista.'},
+ {sel:'#simPanel .ss-crt', txt:'A <b>tela do comando</b> FANUC: em cima o programa (O…) e a página; no meio as coordenadas, o programa ou os corretores; embaixo o <b>modo</b> (MEM, EDIT, MDI, JOG, HND, ZRN) e a linha <b>&gt;</b> com o que você digita.'},
+ {sel:'#softkeys', txt:'As <b>softkeys</b>: os botões embaixo da tela mudam conforme a página. Em OFFSET: <b>CORRET</b>, <b>GEOM</b>, <b>DESG</b>, <b>TRAB</b>, <b>MEDIR</b>, <b>INSERIR</b>… Em POS: <b>ABS</b>, <b>REL</b>, <b>TUDO</b>.'},
+ {sel:'#kbd .kb-keys', txt:'Letras e números do <b>teclado MDI</b>. Cada tecla tem duas: a grande, e a pequena com <b>SHIFT</b>. <b>EOB</b> é o fim de bloco (o ; do programa).'},
+ {sel:'#kbd .kb-ctl', txt:'<b>CAN</b> apaga o último caractere digitado; <b>INPUT</b> grava um valor nos corretores/zero-peça; <b>ALTER</b> troca, <b>INSERT</b> insere e <b>DELETE</b> apaga um bloco do programa (no modo EDIT ou MDI).'},
+ {sel:'#kbd .kb-fn', txt:'Teclas de página: <b>POS</b> (posição dos eixos), <b>PROG</b> (programa / MDI), <b>OFFSET SETTING</b> (corretores das ferramentas e zero-peça), <b>SYSTEM</b> (parâmetros), <b>MESSAGE</b> (alarmes) e <b>GRAPH</b> (desenho).'},
+ {sel:'#kbd .kb-nav', txt:'<b>RESET</b> limpa os alarmes e aborta o programa; <b>HELP</b> mostra o passo a passo completo; <b>PAGE ▲▼</b> troca de folha e as <b>setas</b> movem o cursor (nas tabelas de corretor e no programa).'},
+ {sel:'#opEmg', txt:'<b>EMERGÊNCIA</b>: o cogumelo vermelho para tudo na hora. Para voltar: solte, <b>MACHINE ON</b>, <b>RESET</b> e refaça o <b>HOME</b> — a máquina perde a referência.'},
+ {sel:'#ovSpin', txt:'<b>Rotação do fuso</b> (50 a 120 %): ajusta a rpm programada sem mudar o programa.'},
+ {sel:'#ovFeed', txt:'<b>Avanço / JOG</b> (0 a 120 %): ajusta o avanço F do programa e a velocidade dos eixos no JOG. Em 0 % os eixos param.'},
+ {sel:'#roGrid [data-mode="MEM"]', txt:'<b>AUTO</b> (MEM): roda o programa da memória com <b>CYCLE START</b>.'},
+ {sel:'#roGrid [data-mode="EDIT"]', txt:'<b>EDIT</b>: edita o programa (digitar, ALTER, INSERT, DELETE).'},
+ {sel:'#roGrid [data-mode="MDI"]', txt:'<b>MDI</b>: executa um bloco solto digitado na hora — ex.: <b>T0101</b> para trocar a ferramenta ou <b>M3 S500</b> para ligar o fuso.'},
+ {sel:'#roGrid [data-mode="REF"]', txt:'<b>HOME</b> (ZRN): <b>referenciar</b>. Com HOME ligado, cada <b>CYCLE START</b> leva um eixo ao ponto de referência (primeiro X, depois Z). A luz <b>REF</b> acende.'},
+ {sel:'#roGrid [data-mode="JOG"]', txt:'<b>JOG</b>: move os eixos enquanto você segura <b>+X −X +Z −Z</b>, na velocidade do botão de avanço.'},
+ {sel:'#kRapid', txt:'<b>TRVS</b> (rápido): com JOG, segura o eixo em <b>avanço rápido</b> — para chegar perto da peça depressa. Perto da peça, desligue!'},
+ {sel:'#roGrid [data-ax="x:1"]', txt:'<b>+X −X +Z −Z</b>: as setas dos eixos. +X afasta do centro da peça, −X aproxima; +Z vai para a direita (para longe da placa), −Z vai para a placa. No HOME elas só escolhem o eixo.'},
+ {sel:'#roGrid [data-mode="HND"][data-inc="1"]', txt:'<b>MPG X1 / X10 / X100</b>: liga a <b>manivela</b> com 0,001, 0,01 ou 0,1 mm por clique. Escolha o eixo com ±X / ±Z e gire a manivela — é assim que se encosta na peça devagar.'},
+ {sel:'#handDial', txt:'A <b>manivela</b> (MPG): arraste em círculo ou use a roda do mouse. Os botões − e + dão um clique de cada vez. As luzes <b>REF X / REF Z</b> mostram os eixos referenciados.'},
+ {sel:'#kDRN', txt:'<b>DRY RUN</b>: roda o programa com os eixos em velocidade de teste, ignorando o F. <b>PROG TEST</b>: testa o programa sem girar o fuso. Use sem peça para conferir o caminho.'},
+ {sel:'#kSBK', txt:'<b>SINGL BLOCK</b>: bloco a bloco — cada CYCLE START executa uma linha. Use na primeira peça. <b>BLOCK DELET</b> pula as linhas que começam com <b>/</b>; <b>OPT STOP</b> faz o <b>M1</b> parar.'},
+ {sel:'#kTP', txt:'<b>JOG TURRET</b> + <b>TURRET POS</b>: giram a torre à mão para a próxima ferramenta (no modo JOG). Pelo programa ou MDI é o <b>T</b>.'},
+ {sel:'#kClOn', txt:'<b>CLNT ON / OFF / AUTO</b>: refrigeração ligada, desligada ou por conta do programa (M8 / M9).'},
+ {sel:'#kCW', txt:'<b>SPDL CW</b> liga o fuso (sentido horário) e <b>SPDL STOP</b> para — em JOG / MPG, para fazer o corte de teste ao zerar à mão.'},
+ {sel:'#kChipFw', txt:'<b>CHIP CONV</b> (esteira de cavacos), <b>WASH GUN</b> (pistola de lavagem), <b>OK OPERATOR</b> e <b>PROG RESTRT</b>: existem na máquina, mas não são usados nos exercícios.'},
+ {sel:'#pwMach', txt:'<b>MACHINE ON</b>: liga a parte de potência (motores) — só funciona com o CNC ligado, a emergência solta e a porta fechada.'},
+ {sel:'#pwCnc', txt:'<b>CNC ON</b>: liga o comando. É o primeiro botão do dia.'},
+ {sel:'#pwLock', txt:'<b>LOCK / SETUP</b>: chave que protege os programas e corretores contra edição.'},
+ {sel:'#pwDoor', txt:'<b>OPEN / CLOSE DOOR</b>: abre e fecha a porta. Com a porta aberta a máquina não liga o fuso nem roda o programa.'},
+ {sel:'#kChuck', txt:'<b>CHUCK CLAMP</b>: fecha a <b>placa</b> e prende a peça. Solta, o fuso não gira. <b>TAIL QUILL</b> avança o mangote do contraponto (peças compridas).'},
+ {sel:'#opHold', txt:'<b>CYCLE STOP</b>: pausa o movimento (CYCLE START continua). Para abortar de vez: <b>RESET</b>.'},
+ {sel:'#opStart', txt:'<b>CYCLE START</b>: executa — o programa em AUTO, o bloco em MDI e o referenciamento em HOME. Pronto, agora você conhece o painel! Siga a <b>missão</b> no alto da máquina.'}
+];
+
+/* =========================================================================
+   FASE 00 — OPERAÇÃO DO SIMULADOR (missão passo a passo, conferida pelo estado do painel)
+   ========================================================================= */
+const evAfter = k => { const e=window.OPER_EV&&OPER_EV[k]; return e && e.t>P.oper.since ? e : null; };
+const geo01 = () => MACH.setup.torno.geo['01'];
+const OPER_STEPS=[
+ {sel:['#pwCnc'], t:'Ligar o comando: CNC ON', how:'Aperte <b>CNC ON</b>.', why:'Liga o comando FANUC (a tela). A máquina ainda está sem potência e com o alarme de emergência.', ok:()=>MACH.pwr.cnc},
+ {sel:['#opEmg'], t:'Soltar a EMERGÊNCIA', how:'Clique no cogumelo vermelho <b>EMERGÊNCIA</b> para soltar.', why:'Com a emergência apertada nada se move. Ela fica apertada sempre que a máquina é desligada.', ok:()=>!MACH.emg},
+ {sel:['#pwDoor'], t:'Fechar a porta', how:'Aperte <b>OPEN/CLOSE DOOR</b> (a luz apaga com a porta fechada).', why:'Segurança: com a porta aberta a máquina não liga.', ok:()=>!MACH.pwr.door},
+ {sel:['#pwMach'], t:'MACHINE ON', how:'Aperte <b>MACHINE ON</b>.', why:'Liga a potência dos motores (eixos e fuso).', ok:()=>MACH.pwr.mach},
+ {sel:['#kbd [data-c="RESET"]'], t:'RESET — limpar o alarme', how:'Aperte <b>RESET</b> no teclado do comando.', why:'Apaga o alarme EMG que ficou na tela desde que o comando ligou.', ok:()=>evAfter('reset') && !MACH.almList.length},
+ {sel:['#roGrid [data-mode="REF"]'], t:'Modo HOME (referência)', how:'Aperte <b>HOME</b>. Na tela o modo vira <b>ZRN</b>.', why:'Ao ligar, o comando não sabe onde os carros estão. O HOME leva cada eixo até o <b>ponto de referência</b> (zero-máquina).', ok:()=>MACH.mode==='REF'},
+ {sel:['#roGrid [data-ax="x:1"]','#opStart'], t:'Referenciar o eixo X', how:'Com <b>HOME</b>, aperte <b>CYCLE START</b> (o eixo X é o primeiro; <b>+X</b> o escolhe). Espere a luz <b>REF X</b>.', why:'O carro transversal vai até o fim do curso em +X e o comando zera a contagem da máquina.', ok:()=>MACH.ref.torno.X},
+ {sel:['#roGrid [data-ax="z:1"]','#opStart'], t:'Referenciar o eixo Z', how:'Aperte <b>CYCLE START</b> de novo para o Z. Espere a luz <b>REF Z</b>.', why:'Agora o carro longitudinal. Com X e Z referenciados a máquina sabe onde está — e o CYCLE START do programa é liberado (senão: ALM 224).', ok:()=>MACH.ref.torno.Z},
+ {sel:['#roGrid [data-mode="JOG"]'], t:'Modo JOG', how:'Aperte <b>JOG</b>.', why:'No JOG os eixos andam enquanto você segura as setas.', ok:()=>MACH.mode==='JOG'},
+ {sel:['#roGrid [data-ax="x:-1"]','#roGrid [data-ax="z:-1"]','#kRapid'], t:'Sair do ponto de referência (−X e −Z)', how:'Segure <b>−X</b> e depois <b>−Z</b> (ligue <b>TRVS</b> para ir rápido) até afastar uns 10 mm de cada.', why:'O ponto de referência é o fim do curso positivo: em cima dele a máquina não vai mais para +X/+Z. Os manuais Romi mandam afastar antes de trabalhar.', ok:()=>MACH.m.torno.x<=-10 && MACH.m.torno.z<=-10},
+ {sel:['#btnStock'], t:'Colocar a peça bruta', how:'Botão <b>Peça bruta</b> → confira Ø 40 × 50 mm, sobremetal 0 → <b>Aplicar</b>.', why:'No SSCNC: <i>Ajustar parâmetros da peça → Material bruto</i>. Define o tamanho do tarugo que vai na placa.', ok:()=>evAfter('stock')},
+ {sel:['#kChuck'], t:'Prender a peça: CHUCK CLAMP', how:'Aperte <b>CHUCK CLAMP</b> (a luz acende).', why:'Fecha as castanhas da placa. Com a placa solta o fuso não gira.', ok:()=>MACH.pwr.chuck},
+ {sel:['#roGrid [data-mode="MDI"]'], t:'Modo MDI', how:'Aperte <b>MDI</b> (a tela vai para PROG → MDI).', why:'No MDI você executa um bloco solto, sem programa.', ok:()=>MACH.mode==='MDI'},
+ {sel:['#kbd .kb-keys','#kbd [data-c="INSERT"]','#opStart'], t:'Chamar a ferramenta: T0101', how:'Digite <b>T0101</b> no teclado, <b>EOB</b>, <b>INSERT</b> e <b>CYCLE START</b>.', why:'A torre gira para a posição <b>01</b> e o comando passa a usar o corretor <b>01</b> — a linha que você vai medir.', ok:()=>MACH.tool.torno===1 && MACH.offIdx===1 && evAfter('mdiT')},
+ {sel:['#btnQuick'], t:'POSICIONAMENTO RÁPIDO na face', how:'Botão <b>Posic. rápido</b> → <b>Face · extremo de X</b>.', why:'O atalho do SSCNC: a ponta da ferramenta vai direto para a quina da face, no diâmetro da peça. Na máquina real você encostaria devagar com a manivela (MPG).', ok:()=>{ const e=evAfter('quick'); return e && e.v==='edge'; }},
+ {sel:['#kbd .fk[data-pg="OFS"]','#softkeys'], t:'Abrir OFFSET SETTING → CORRET → GEOM', how:'Tecla <b>OFFSET SETTING</b>, softkey <b>CORRET</b> e depois <b>GEOM</b>.', why:'A tabela de <b>geometria</b>: cada linha (G 01, G 02…) guarda quanto cada ferramenta está deslocada em X e Z.', ok:()=>MACH.page==='OFS' && MACH.sub.OFS==='GEOM'},
+ {sel:['#softkeys','#simPanel .ss-crt'], t:'Medir Z: Z0 → MEDIR', how:'Cursor (▲▼) na linha <b>G 01</b>; digite <b>Z0</b> e aperte a softkey <b>MEDIR</b>.', why:'A ponta está encostada na face, e a face é o <b>Z0</b> da peça: o comando calcula e grava o Z da ferramenta 01.', ok:()=>Math.abs(geo01().z-trueTip('torno',1).z)<0.05},
+ {sel:['#softkeys','#simPanel .ss-crt'], t:'Medir X: X40 → MEDIR', how:'Na mesma linha <b>G 01</b>, sem mexer na máquina, digite <b>X40</b> (o Ø da peça) e <b>MEDIR</b>.', why:'O X do torno é em <b>diâmetro</b>: a ponta está no Ø 40, então o comando grava o X da ferramenta 01.', ok:()=>Math.abs(geo01().x-trueTip('torno',1).x)<0.05},
+ {sel:['#roGrid [data-mode="MEM"]'], t:'Modo AUTO', how:'Aperte <b>AUTO</b>.', why:'O modo de executar o programa da memória (o O0001 da coluna Programa).', ok:()=>MACH.mode==='MEM'},
+ {sel:['#opStart'], t:'Usinar: CYCLE START', how:'Aperte <b>CYCLE START</b> e acompanhe: a ferramenta faceia e torneia o Ø36.', why:'Se a ferramenta foi medida certo a peça sai perfeita. Medida errada: NADA FOI USINADO ou FORA DO LUGAR.', ok:()=>evAfter('runOk')}
+];
+let operTick=0;
+function operSetup(lv){
+  clearInterval(operTick); operTick=0;
+  $$('.oper-glow').forEach(e=>e.classList.remove('oper-glow'));
+  const was=$('#simPanel').classList.contains('oper');
+  $('#simPanel').classList.toggle('oper',!!lv.oper);
+  $('#operList').hidden=!lv.oper; $('#operBar').hidden=!lv.oper;
+  if(!lv.oper){ if(was) warmStart(); return; }   // saiu da fase 00 sem terminar: devolve a máquina ligada
+  coldStart();
+  P.oper={i:0, since:performance.now()};
+  operRender(true);
+  operTick=setInterval(operPoll,250);
+}
+function operPoll(){
+  if(!P||!P.lv.oper||P.won){ clearInterval(operTick); operTick=0; return; }
+  const st=OPER_STEPS[P.oper.i]; if(!st||!st.ok()) return;
+  sndOk(); P.oper.i++; P.oper.since=performance.now();
+  if(P.oper.i>=OPER_STEPS.length){ operRender(true); $$('.oper-glow').forEach(e=>e.classList.remove('oper-glow')); setTimeout(win,900); return; }
+  operRender(true);
+}
+function operRender(scroll){
+  const i=P.oper.i, N=OPER_STEPS.length, st=OPER_STEPS[i];
+  $('#operList').innerHTML=`<div class="ol-head"><b>Missão</b> · ${Math.min(i,N)}/${N} passos <span class="ol-bar"><i style="width:${Math.round(Math.min(i,N)/N*100)}%"></i></span></div><ol>`+
+    OPER_STEPS.map((s,k)=>`<li class="${k<i?'done':k===i?'cur':''}"><span class="ol-t">${s.t}</span>${k===i?`<div class="ol-how">${s.how}</div><div class="ol-why"><b>Para que serve:</b> ${s.why}</div>`:''}</li>`).join('')+'</ol>';
+  $('#operBar').innerHTML = st
+    ? `<span class="ob-n">MISSÃO ${i+1}/${N}</span><span class="ob-t"><b>${st.t}</b> — ${st.how}</span><button class="mini" id="obHint">Dica</button><button class="mini" id="obTour">Tour</button>`
+    : `<span class="ob-n">MISSÃO COMPLETA</span><span class="ob-t">Máquina preparada e peça usinada como no SSCNC!</span>`;
+  const h=$('#obHint'); if(h) h.onclick=operHint;
+  const t=$('#obTour'); if(t) t.onclick=()=>startTutorial(TOUR);
+  $$('.oper-glow').forEach(e=>e.classList.remove('oper-glow'));
+  if(st) st.sel.forEach(q=>{ const e=$(q); if(e) e.classList.add('oper-glow'); });
+  if(scroll){ const c=$('#operList li.cur'); if(c&&c.scrollIntoView) c.scrollIntoView({block:'nearest'}); }
+}
+function operHint(){
+  const st=OPER_STEPS[P.oper.i]; if(!st) return;
+  setView('#screen-play','sim');
+  const e=st.sel.map(q=>$(q)).find(Boolean);
+  if(e){ e.classList.remove('oper-glow'); void e.offsetWidth; e.classList.add('oper-glow'); if(e.scrollIntoView) e.scrollIntoView({block:'nearest'}); }
+  toast(`<b>${st.t}</b><br>${st.how}<br><small>${st.why}</small>`,7000);
+}
+$('#btnTour').onclick=()=>startTutorial(TOUR);
 
 /* =========================================================================
    CONFETE

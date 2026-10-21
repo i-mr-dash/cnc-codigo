@@ -101,6 +101,10 @@ const MACH = {
   pwr:{cnc:true, mach:true, door:false, chuck:true, lock:false, quill:false}, coolAuto:true, jtArmed:false
 };
 let has3D=false;
+/* eventos do painel (a fase de operação confere a sequência do aluno por eles) */
+const EV={};
+window.OPER_EV=EV;
+const evMark=(k,v)=>{ EV[k]={t:performance.now(), v}; };
 const mm = () => MACH.m[SIM.machine];
 const setup = () => MACH.setup[SIM.machine];
 const refOf = () => MACH.ref[SIM.machine];
@@ -423,23 +427,31 @@ function procGroups(machine){
     `${K_('OPEN/CLOSE DOOR')} — a porta precisa estar fechada.`,
     `${K_('MACHINE ON')} e depois ${K_('RESET')} (limpa o alarme).`]]);
   g.push(['2 · Referenciar os eixos (HOME)', [
+    `Se algum eixo estiver encostado no fim do curso, afaste antes: ${K_('JOG')} e ${K_(T?'−X / −Z':'−X / −Y / −Z')} (ou a manivela).`,
     `Tecla ${K_('HOME')}.`,
-    `Escolha o eixo com ${K_(A[0])} e aperte ${K_('CYCLE START')}; repita com ${A.slice(1).map(K_).join(' e ')}. As luzes REF acendem na tela e no painel.`,
-    `Sem isso o CYCLE START dá <b>ALM 224</b>.`]]);
+    `${K_('CYCLE START')} uma vez para cada eixo: primeiro ${K_('X')}, depois ${A.slice(1).map(a=>K_(a.slice(1))).join(' e ')} (o eixo da vez acende; ${A.map(K_).join(' / ')} escolhem outro). As luzes REF acendem na tela e no painel.`,
+    `Depois do HOME a máquina está no <b>fim do curso positivo</b>: saia com ${K_('JOG')} + ${K_(T?'−X / −Z':'−X / −Y / −Z')} (${K_('TRVS')} = rápido). Sem referenciar, o CYCLE START dá <b>ALM 224</b>.`]]);
   g.push(['3 · Preparar a peça', [
     `Botões ${K_('Peça bruta')} e ${K_('Ferramentas')} (dimensões do material e ferramentas montadas).`,
     T?`${K_('CHUCK CLAMP')} fixa a peça na placa (sem isso o fuso não gira).`:`Fixe a peça na morsa (já está presa) e confira o calibrador.`]]);
   if(T){
-    g.push(['4 · Zerar cada ferramenta — eixo Z', [
+    g.push(['4 · Zerar a ferramenta com o POSICIONAMENTO RÁPIDO (como no SSCNC)', [
+      `${K_('MDI')} → ${K_('PROG')} → digite <b>T0101</b> ${K_('EOB')} ${K_('INSERT')} → ${K_('CYCLE START')} (a torre gira para a ferramenta 01).`,
+      `Botão ${K_('Posic. rápido')} (no SSCNC: <i>Ajustar parâmetros da peça</i> → ícone de posicionamento rápido) → ${K_('Face · extremo de X')}: a ponta vai direto para a quina da face, no diâmetro da peça.`,
+      `${K_('OFFSET SETTING')} → ${K_('CORRET')} → ${K_('GEOM')}; cursor ↑↓ na linha da ferramenta (G 01); digite <b>Z0</b> → ${K_('MEDIR')}.`,
+      `Sem mexer na máquina: digite <b>X</b> + diâmetro da peça bruta (ex.: <b>X40</b>) → ${K_('MEDIR')}. Pronto: X e Z da ferramenta 01 medidos.`,
+      `Com ${K_('Face · zero de X')} a ponta vai para o centro da face: aí o X medido é <b>X0</b>. Se a peça tem sobremetal na face, digite <b>Z</b> + sobremetal (ex.: <b>Z1</b>).`,
+      `Repita para cada ferramenta (T0202, T0303…), cada uma na sua linha do GEOM.`]]);
+    g.push(['4b · Zerar à mão (como na máquina de verdade) — eixo Z', [
       `${K_('MDI')} → ${K_('PROG')} → digite <b>T0101</b> ${K_('EOB')} ${K_('INSERT')} → ${K_('CYCLE START')} (troca a torre). Ou ${K_('JOG')} + ${K_('JOG TURRET')} + ${K_('TURRET POS')}.`,
       `${K_('JOG')}: ${K_('SPDL CW')} (fuso girando!) e aproxime com ${K_('+X −X +Z −Z')}; ${K_('TRVS')} liga o avanço rápido e o botão ${K_('AVANÇO')} regula a velocidade. Para chegar devagar use ${K_('MPG X10')} (ou X1/X100), escolha o eixo com ${K_('+Z')}/${K_('−Z')} e gire a manivela.`,
       `Toque a ferramenta na <b>face</b> da peça e afaste só em X.`,
       `${K_('OFS/SET')} → ${K_('CORRET')} → ${K_('GEOM')}; cursor ↑↓ na linha da ferramenta; digite <b>Z0</b> → ${K_('INS. C')} (ou ${K_('MEDIR')}).`]]);
-    g.push(['5 · Zerar cada ferramenta — eixo X', [
+    g.push(['5 · Zerar à mão — eixo X', [
       `Com o fuso girando, faça um corte leve no diâmetro; afaste só em <b>Z</b> (não mexa em X) e dê ${K_('SPDL STOP')}.`,
       `Meça com o ${K_('Paquímetro')} (botão no 3D).`,
       `${K_('OFS/SET')} → ${K_('CORRET')} → ${K_('GEOM')}; cursor na ferramenta; digite <b>X</b> + diâmetro medido (ex.: <b>X48</b>) → ${K_('MEDIR')}.`,
-      `Repita os passos 4 e 5 para cada ferramenta (cada uma tem a sua linha).`]]);
+      `Repita os passos 4b e 5 para cada ferramenta (cada uma tem a sua linha).`]]);
     g.push(['6 · Raio e quadrante da ferramenta', [
       `${K_('OFS/SET')} → ${K_('CORRET')} → ${K_('GEOM')}; cursor na coluna <b>R</b> (raio da pastilha, ex.: 0.8) → digite o valor → ${K_('INPUT')}.`,
       `Na coluna <b>T</b> digite o quadrante (3 = ferramenta externa comum) → ${K_('INPUT')}.`]]);
@@ -599,8 +611,11 @@ function collisionAt(p){
 }
 function moveMachine(to, rapid){      // to = posição de máquina; devolve false se travou
   if(MACH.emg) return false;
+  let hitLim=false;
+  // o ponto de referência fica no fim do curso positivo: além dele a máquina não vai
+  to={...to}; AXES().forEach(a=>{ if(to[a]>1e-6){ to[a]=0; hitLim=true; } });
   const slot=slotNow(), from=physOf(mm(),slot); let toP=physOf(to,slot);
-  const lim=limitsP(); let hitLim=false;
+  const lim=limitsP();
   Object.keys(lim).forEach(k=>{ const v=toP[k]; if(v<lim[k][0]){ toP[k]=lim[k][0]; hitLim=true; } else if(v>lim[k][1]){ toP[k]=lim[k][1]; hitLim=true; } });
   const col=collisionAt(toP);
   if(col){ addAlarm(col); setPage('MSG'); toast(col,4200); return false; }
@@ -712,6 +727,7 @@ function refAxis(axis,dir){
   if(MACH.emg){ toast('Solte a EMERGÊNCIA primeiro.'); return; }
   const A=axis.toUpperCase(); if(MACH.moving) return;
   if(refOf()[A]){ toast(`Eixo ${A} já está no ponto de referência.`); return; }
+  if(mm()[axis]>-2){ toast(`Eixo ${A} está em cima do ponto de referência: afaste uns 10 mm em <b>−${A}</b> (<b>JOG</b> ou manivela) e faça o HOME de novo.`,5200); return; }
   animateTo({[axis]:0}, 90, true).then(ok=>{ if(!ok) return; refOf()[A]=true; beep(980,.08); renderCRT(); renderRefLamps(); const nx=Object.keys(refOf()).find(k=>!refOf()[k]); if(nx) selectAxis(nx.toLowerCase());
     if(allRef()) toast('Máquina referenciada ✓ — próximo passo: geometria das ferramentas (OFS/SET → CORRET → GEOM) e zero-peça (TRAB).',4800); });
 }
@@ -833,6 +849,7 @@ $('#opHold').onclick=()=>{
   if(!Sim3D.active()) return; Sim3D.hold(); $('#opHold').classList.add('lit'); $('#opStart').classList.remove('lit'); $('#crtRun').textContent='HOLD';
 };
 $('#opReset').onclick=()=>{
+  evMark('reset');
   animCancel++; MACH.moving=false; MACH.holdMove=false; jogH=null;
   Sim3D.stop(); markRun(-1); MACH.runRow=-1; MACH.runPos=null; MACH.runState=null; MACH.afterRun=false;
   MACH.spin=5; MACH.cool=false; Sim3D.setSpin({spin:5,cool:false}); coolLamps();
@@ -872,7 +889,7 @@ async function execMDIBlock(text){
   if('T' in o){
     if(T){ const c=String(Math.round(o.T)).padStart(4,'0'), slot=+c.slice(0,2), oi=+c.slice(2,4);
       if(!toolLookup(SIM.tools,m)(c)){ machineAlarm(`Ferramenta T${pad2(slot)} não está montada. Abra FERRAMENTAS.`); return false; }
-      MACH.tool.torno=slot; MACH.offIdx=oi; syncTool(); toast(`T${c}: ${TOOL_TYPES.torno[SIM.tools[pad2(slot)].type].n}`,2000); }
+      MACH.tool.torno=slot; MACH.offIdx=oi; syncTool(); evMark('mdiT',c); toast(`T${c}: ${TOOL_TYPES.torno[SIM.tools[pad2(slot)].type].n}`,2000); }
     else{ const slot=Math.round(o.T); if(!SIM.tools[pad2(slot)]){ machineAlarm(`Ferramenta T${pad2(slot)} não está montada. Abra FERRAMENTAS.`); return false; } MACH.pendT=slot;
       if(g.M.includes(6)){ MACH.tool.fresa=slot; syncTool(); } }
   }
@@ -918,6 +935,51 @@ $('#btnCaliper').onclick=()=>{
   else{ const g=Sim3D.gaps(ph,toolCodeNow()); if(!g||g.z==null) toast('Posicione a ferramenta sobre a peça para medir a altura.'); else toast(`Altura da peça sob a ferramenta: <b>Z ${(ph.z-g.z).toFixed(3)}</b> mm`,4200); }
 };
 
+/* ---------- POSICIONAMENTO RÁPIDO (SSCNC: Ajustar parâmetros da peça → posicionar a ferramenta na peça) ----------
+   leva a ponta da ferramenta ativa à face da peça: no extremo de X (diâmetro) ou no zero de X (centro) */
+$('#btnQuick').onclick=()=>{
+  if(SIM.machine!=='torno'){ toast('O posicionamento rápido está no torno. Na fresa, encoste com <b>JOG</b>/<b>MPG</b> e o calibrador.'); return; }
+  $('#unTitle').textContent='Posicionamento rápido';
+  $('#modalUnlock').classList.remove('finish');
+  $('#unBody').innerHTML=`<p class="exrow">Igual ao ícone do SSCNC (<i>Ajustar parâmetros da peça</i>): a ponta da ferramenta que está na torre vai direto até a <b>face</b> da peça, em rápido. Depois é só medir em <b>OFFSET SETTING → CORRET → GEOM</b>.</p>
+    <div class="qp-opts">
+      <button class="btn primary" data-qp="edge"><b>Face · extremo de X</b><small>quina da face, no diâmetro — meça <b>Z0</b> e <b>X</b> + Ø da peça</small></button>
+      <button class="btn" data-qp="center"><b>Face · zero de X</b><small>centro da face — meça <b>Z0</b> e <b>X0</b></small></button>
+    </div>`;
+  $$('#unBody [data-qp]').forEach(b=>b.onclick=()=>{ closeModal('#modalUnlock'); quickPos(b.dataset.qp); });
+  $('#unClose').textContent='Cancelar'; $('#unClose').onclick=()=>closeModal('#modalUnlock'); openModal('#modalUnlock');
+};
+async function quickPos(kind){
+  if(guardMove()) return;
+  if(!allRef()){ machineAlarm('ALM 224 — referencie a máquina antes (HOME + CYCLE START em X e em Z).'); return; }
+  if(!has3D||!SIM.part){ toast('Sem peça na máquina: defina a <b>Peça bruta</b>.'); return; }
+  if(['MEM','EDIT'].includes(MACH.mode)) setMode('JOG');
+  const f=Sim3D.faceInfo(); if(!f){ toast('Não há peça na placa.'); return; }
+  const tx = kind==='center' ? 0 : f.d, cur=physOf(mm());
+  const go = async ph => { const t=machOf({...physOf(mm()), ...ph}); return animateTo({x:t.x, z:t.z}, 160, true); };
+  if(cur.z < f.z+2){ if(!await go({x:Math.max(cur.x, f.d+6)})) return; if(!await go({z:f.z+2})) return; }
+  if(!await go({x:tx})) return;
+  if(!await go({z:f.z})) return;
+  evMark('quick',kind); beep(1100,.06); updateGap();
+  toast(`Ferramenta na face${kind==='center'?', no centro (X0)':`, no Ø ${fmt(+f.d.toFixed(3))}`}. Agora <b>OFFSET SETTING → CORRET → GEOM</b>, cursor na ferramenta: <b>Z0</b> → [MEDIR] e <b>${kind==='center'?'X0':'X'+fmt(+f.d.toFixed(3))}</b> → [MEDIR].`,7000);
+}
+
+/* liga a máquina "fria", como ao abrir o SSCNC: CNC desligado, emergência apertada, porta aberta, placa solta, nada medido */
+function coldStart(){
+  powerCut(); MACH.emg=true; $('#opEmg').classList.add('on');
+  MACH.pwr={cnc:false, mach:false, door:true, chuck:false, lock:false, quill:false};
+  Object.keys(MACH.ref).forEach(m=>Object.keys(MACH.ref[m]).forEach(a=>MACH.ref[m][a]=false));
+  MACH.setup.torno=freshSetup('torno'); MACH.m.torno={x:-8,z:-6}; MACH.tool.torno=4; MACH.offIdx=0; MACH.wcs=54; MACH.mdi=[];
+  MACH.almList=[]; $('#crtAlm').textContent='';
+  setMode('MEM'); setPage('POS'); syncTool(); pwrLamps(); renderRefLamps(); renderCRT();
+}
+/* volta ao estado ligado padrão (ao sair da fase de operação sem terminar) */
+function warmStart(){
+  MACH.emg=false; $('#opEmg').classList.remove('on');
+  Object.assign(MACH.pwr,{cnc:true, mach:true, door:false, chuck:true});
+  pwrLamps(); renderCRT();
+}
+
 /* =========================================================================
    INICIALIZAÇÃO
    ========================================================================= */
@@ -941,6 +1003,7 @@ function initSim(){
     const cut = SIM.res && SIM.res.segs.some(s=>s.kind!=='rapid');
     if(cut && Sim3D.carved()===0) addAlarm('NADA FOI USINADO — a ferramenta trabalhou longe da peça: confira o zero-peça (WORK) e os corretores (GEOM)');
     showAlarmBox(); renderCRT();
+    if(!MACH.almList.length && Sim3D.carved()>0) evMark('runOk');
     toast(MACH.almList.length?'Programa terminou <b>com alarme</b> — veja MESSAGE.':'Programa terminado — <b>M30</b>. Peça pronta!',4200);
   };
   buildKeyboard(); buildAxisKeys(); buildOverrides(); setMode('MEM'); setPage('POS');
@@ -1063,7 +1126,7 @@ function openStock(){
     const n=id=>+(($('#'+id)||{}).value||0);
     const s = m==='torno' ? {stock:[Math.max(2,n('s0')), Math.max(5,n('s1'))], face:Math.max(0,n('s2'))}
                           : {stock:[n('s0'),n('s1'),Math.max(n('s0')+5,n('s2')),Math.max(n('s1')+5,n('s3'))], thick:Math.max(2,n('s4'))};
-    s.mat=$('#smat').value; MACH.feeler[m]=+$('#sfeel').value;
+    s.mat=$('#smat').value; MACH.feeler[m]=+$('#sfeel').value; evMark('stock');
     closeModal('#modalStock'); c.setStock(s);
   };
   openModal('#modalStock');

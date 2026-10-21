@@ -657,6 +657,14 @@ function diameterAt(z){        // menor diâmetro na janela que a ferramenta aca
   let r=Infinity; for(let k=i0;k<=i1;k++) r=Math.min(r,M.rOut[k]); return isFinite(r)?2*r:null;
 }
 
+/* face atual da peça no torno (para o POSICIONAMENTO RÁPIDO do SSCNC): z da face e Ø externo ali */
+function faceInfo(){
+  if(!M||machine!=='torno') return null;
+  let k=0; while(k<M.n && M.rOut[k]<=0.01) k++;
+  if(k>=M.n) return null;
+  return {z:M.z0-k*DZ, d:2*M.rOut[k]};
+}
+
 /* ---------------- carregar / resultado final ---------------- */
 function fresh(){ M = machine==='torno' ? latheModel(part) : millModel(part); carved=0; shiftAlarmed={}; }
 function load(o){
@@ -773,7 +781,7 @@ function snapshot(){ try{ placeCamera(); renderer.render(scene,camera); return r
 
 function setYawPitch(y,pt){ cam.yaw=+y; cam.pitch=+pt; dirty=true; }
 function focusTool(dist){ if(!ok||!toolGroup) return; const p=toolGroup.position; cam.tx=p.x; cam.ty=p.y; cam.tz=p.z; cam.dist=dist||70; cam.yaw=0.9; cam.pitch=0.35; dirty=true; }
-return { init, load, showFinal, focusTool, setYawPitch, resetStock, play, hold, stop, running, active, setOpts, manualMove, placeTool, placePhys, setToolCode, gaps, diameterAt, setSpin, snapshot,
+return { init, load, showFinal, focusTool, setYawPitch, resetStock, play, hold, stop, running, active, setOpts, manualMove, placeTool, placePhys, setToolCode, gaps, diameterAt, faceInfo, setSpin, snapshot,
   setPathVisible:v=>{ showPath=v; buildPath(); dirty=true; }, resetView:()=>{ frame(); dirty=true; },
   homePos:c=>M?homePos(c):null, getAlarms:()=>alarms.slice(), carved:()=>carved,
   set onTick(f){ onTick=f; }, set onDone(f){ onDone=f; }, set onStop(f){ onStop=f; },
