@@ -133,7 +133,13 @@
           <span>Editor</span>
           <div class="mini-tools">
             <select id="benchMachine" aria-label="Máquina"><option value="torno">Torno</option><option value="fresa">Centro de usinagem</option></select>
+            <select id="benchProfile" aria-label="Máquina calibrada" title="Sentido dos arcos e posição do tarugo"><option value="senai">Máquina SENAI</option><option value="casa">Máquina de casa</option></select>
+            <button class="mini" id="benchOpen" title="Abrir programa .cnc ou .nc">Abrir .cnc</button>
+            <button class="mini" id="benchCt" title="Carregar arquivo de ferramentas .ct no tambor">Ferramentas .ct</button>
+            <button class="mini" id="benchWp" title="Carregar peça bruta .wp">Tarugo .wp</button>
+            <button class="mini" id="benchBracinho" title="Carrega o bracinho v14 com tambor e tarugo">Bracinho</button>
             <button class="mini" id="benchExample">Exemplo</button>
+            <input id="benchFile" type="file" hidden>
           </div>
         </div>
         

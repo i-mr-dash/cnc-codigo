@@ -19,7 +19,8 @@ const cam={yaw:0.42, pitch:0.32, dist:180, tx:0, ty:0, tz:0};
 let dirty=true;
 
 /* ---------------- ferramentas ---------------- */
-const LATHE_KIND = {desb:'turn', acab:'turn', rosca:'turn', bedame:'groove', broca:'drill', centro:'drill', interno:'bore'};
+const LATHE_TRAIL = {vnmg95:50, tnmg93:27, vnmg725:72.5};   // ângulo da aresta de trás da pastilha, medido a partir do eixo Z
+const LATHE_KIND = {vnmg95:'turn', tnmg93:'turn', vnmg725:'turn', desb:'turn', acab:'turn', rosca:'turn', bedame:'groove', broca:'drill', centro:'drill', interno:'bore'};
 function toolOf(code){ return code ? getTool(code) : null; }
 function latheKindOf(t){ return t ? (LATHE_KIND[t.type]||'turn') : 'turn'; }
 /* ligação com o painel (zero-peça + corretores): o painel diz o quanto a ferramenta REAL está deslocada da posição comandada */
@@ -45,6 +46,13 @@ function carveLathe(x, z, kind, t){
   if(kind==='bore'){
     const [i0,i1]=cellRange(z, z+1);
     for(let k=i0;k<=i1;k++) if(r>M.rIn[k] && M.rIn[k]>0){ M.rIn[k]=Math.min(r, M.rOut[k]); carved++; }
+    return;
+  }
+  const tr = kind==='turn' && t && LATHE_TRAIL[t.type];
+  if(tr){
+    const tg=Math.tan(tr*Math.PI/180), [a0,a1]=cellRange(z, z+12*Math.cos(tr*Math.PI/180));
+    for(let k=a0;k<=a1;k++){ const dz=(M.z0-(k+0.5)*DZ)-z, rc=r+Math.max(0,dz)*tg;
+      if(M.rOut[k]>rc){ M.rOut[k]=rc; if(M.rIn[k]>rc) M.rIn[k]=rc; carved++; } }
     return;
   }
   const w = kind==='groove' ? (t&&t.w?t.w:3) : 1.0;

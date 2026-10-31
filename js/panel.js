@@ -5,7 +5,10 @@
    e corretores medidos com [MEASURE] — o mesmo procedimento do simulador.
    ========================================================================= */
 const TOOL_TYPES = {
-  torno:{ desb:{n:'Desbaste externo (pastilha 80°)', dim:'r', def:0.8, tip:3},
+  torno:{ vnmg95:{n:'Torneamento VNMG 35° 95° (001/002)', dim:'r', def:0.4, tip:3},
+          tnmg93:{n:'Torneamento TNMG 60° 93° (003)', dim:'r', def:0.4, tip:3},
+          vnmg725:{n:'Acabamento VNMG 35° 72,5° (006)', dim:'r', def:0.2, tip:3},
+          desb:{n:'Desbaste externo (pastilha 80°)', dim:'r', def:0.8, tip:3},
           acab:{n:'Acabamento externo (pastilha 35°)', dim:'r', def:0.4, tip:3},
           bedame:{n:'Bedame (canal / corte)', dim:'w', def:3, tip:8},
           broca:{n:'Broca helicoidal', dim:'d', def:4, tip:0},

@@ -378,6 +378,24 @@ function simulate(lines, machine){
       }
       return;
     }
+    if(G===73){
+      if(!('P' in o)){ st.pend[73]={U:o.U||0, W:o.W||0, R:o.R||1}; return; }
+      const c=contour(Math.round(o.P), Math.round(o.Q));
+      if(!c){ errs.push({row, msg:`Não achei os blocos N${Math.round(o.P)} a N${Math.round(o.Q)} do perfil.`}); return; }
+      if(byN[Math.round(o.P)] > curLine) skipTo = byN[Math.round(o.Q)];
+      if(st.x!==null && st.z!==null && !st.home){
+        const g=st.pend[73]||{U:0,W:0,R:1}, n=Math.max(1,Math.round(g.R));
+        for(let k=0;k<n;k++){
+          const f=n>1?(n-1-k)/(n-1):0, dx=2*g.U*f+(o.U||0), dz=g.W*f+(o.W||0);
+          c.segs.forEach(s=>segs.push({...s, row, kind:s.kind==='rapid'?'rapid':'pass', tool:st.tool, wcs:st.wcs,
+            pts:s.pts.map(p=>({...p, x:p.x+dx, z:p.z+dz}))}));
+          const last=c.segs[c.segs.length-1].pts.slice(-1)[0];
+          segs.push({kind:'rapid', row, tool:st.tool, spin:st.spin, comp:40, wcs:st.wcs,
+            pts:[{x:last.x+dx,y:0,z:last.z+dz},{x:start.x,y:0,z:start.z}]});
+        }
+      }
+      return;
+    }
     if(G===70){
       const c=contour(Math.round(o.P), Math.round(o.Q));
       if(!c){ errs.push({row, msg:`Não achei os blocos N${Math.round(o.P)} a N${Math.round(o.Q)} do perfil.`}); return; }
@@ -729,5 +747,31 @@ function missingDot(text){
   return p.words.some(w=>/^[XYZUWIJKR]$/.test(w.L) && w.v!==0 && Number.isInteger(w.v) && !/\./.test(w.raw));
 }
 
-return {parse, group, simulate, diagnose, checkRow, explainBlock, skeleton, fmtN, missingDot, normRaw, wordTxt};
+/* Programas com G50 X Z (sem tabela de corretor): traduz para coordenadas de peça, com Z0 na face do tarugo.
+   home(pos) = posição da ponta na troca, medida a partir da face. Mantém o número de linhas. */
+function translateG50(text, opt){
+  const usesG50=/(^|[^0-9A-Z])G50[^;\n(]*[XZ]/im.test(text);
+  let sx=0, sz=0, pos=0;
+  const out=text.split('\n').map(line=>{
+    const cm=line.search(/[(;]/), code=cm<0?line:line.slice(0,cm), rest=cm<0?'':line.slice(cm);
+    let c=code.toUpperCase();
+    if(opt.front) c=c.replace(/G0?([23])(?!\d)/g,(m,d)=>'G0'+(d==='2'?'3':'2'));
+    if(!usesG50) return c+rest;
+    const t=c.match(/T(\d{2})(\d{2})/);
+    if(t){ pos=+t[1]; c=c.replace(t[0],'T'+t[1]+t[1]); }
+    if(/G50\b/.test(c) && /[XZ]/.test(c)){
+      const h=opt.home(pos), x=c.match(/X([-+]?[\d.]+)/), z=c.match(/Z([-+]?[\d.]+)/);
+      if(x) sx=h.x-parseFloat(x[1]);
+      if(z) sz=h.z-parseFloat(z[1]);
+      return '';
+    }
+    if(/G28/.test(c)) return c+rest;
+    c=c.replace(/X([-+]?[\d.]+)/,(m,v)=>'X'+(parseFloat(v)+sx).toFixed(3))
+       .replace(/Z([-+]?[\d.]+)/,(m,v)=>'Z'+(parseFloat(v)+sz).toFixed(3));
+    return c+rest;
+  }).join('\n');
+  return {text:out, usesG50};
+}
+
+return {translateG50, parse, group, simulate, diagnose, checkRow, explainBlock, skeleton, fmtN, missingDot, normRaw, wordTxt};
 })();

@@ -855,6 +855,94 @@ N310 G0 Z10. M9
 N320 G0 G53 Z-110. H00 M5
 N330 M30`
 };
+const BRACINHO_EX=`O0001 (BRACINHO V14 - T02 DESBASTE, T04 ACABAMENTO, T08 BEDAME);
+G21 G40 G90 G95;
+G28 U0 W0;
+T0200 (DESBASTE 002);
+G50 X400 Z413.65;
+G00 X24 Z-17 S2500 M03;
+G71 U1.5 R0.5;
+G71 P1 Q2 U0.3 W0.05 F0.2;
+N1 G00 X13.6;
+G01 Z-56.55 F0.2;
+X14 Z-59;
+Z-68;
+X16 Z-69;
+N2 X24;
+G28 U0 W0;
+T0800 (BEDAME FACE, FRENTE, PESCOCO);
+G50 X384.6 Z404.7;
+G00 X26 Z-3 S1500 M03;
+G72 W1 R0.5;
+G72 P3 Q4 U0.3 W0.1 F0.08;
+N3 G00 Z-22.5;
+G01 X13 F0.05;
+G03 X0 Z-16 R6.5;
+N4 G01 Z-3;
+G00 X16 Z-28.5;
+G00 Z-28.500;
+G01 X13.400 F0.06;
+G00 X16;
+G00 Z-31.000;
+G01 X12.400 F0.06;
+G00 X16;
+G00 Z-33.500;
+G01 X9.742 F0.06;
+G00 X16;
+G00 Z-36.000;
+G01 X10.645 F0.06;
+G00 X16;
+G00 Z-38.500;
+G01 X11.053 F0.06;
+G00 X16;
+G00 Z-41.000;
+G01 X11.461 F0.06;
+G00 X16;
+G00 Z-43.500;
+G01 X11.869 F0.06;
+G00 X16;
+G00 Z-46.000;
+G01 X12.278 F0.06;
+G00 X16;
+G00 Z-48.500;
+G01 X12.686 F0.06;
+G00 X16;
+G00 Z-51.000;
+G01 X13.094 F0.06;
+G00 X16;
+G00 Z-28.5;
+G01 X13 F0.05;
+G02 X10.625 Z-32.245 R6.5;
+G03 X9.260 Z-33.625 R5;
+G01 Z-33.625;
+G03 X10 Z-34.5 R5;
+G01 X10.4;
+G00 X16;
+G28 U0 W0;
+T0400 (ACABAMENTO);
+G50 X400 Z413.65;
+G00 X24 Z-17 S3500 M03;
+G70 P1 Q2;
+G00 X24 Z-12;
+G00 X4;
+Z-14;
+G00 X0;
+G01 Z-16 F0.08;
+G02 X13 Z-22.5 R6.5;
+G00 X16;
+G28 U0 W0;
+T0800 (BEDAME CORTE);
+G50 X384.6 Z404.7;
+G00 X26 Z-66 S1500 M03;
+G01 X12 F0.08;
+G00 X16;
+Z-65;
+G01 X14 F0.05;
+X12 Z-66;
+G01 X2 F0.08;
+G00 X26;
+G28 U0 W0;
+M30;`;
 const BENCH_STOCK={torno:{stock:[52,70], face:1}, fresa:{stock:[0,0,150,120], thick:20}};
 function benchState(){
   if(!S.bench || !S.bench.tools || Array.isArray(S.bench.stock.torno)) S.bench={machine:(S.bench&&S.bench.machine)||'torno', code:(S.bench&&S.bench.code)||BENCH_EX.torno,
@@ -865,7 +953,7 @@ function benchState(){
 function benchPart(){ const b=benchState(); return JSON.parse(JSON.stringify(b.stock[b.machine])); }
 function openBench(){
   const b=benchState();
-  $('#benchMachine').value=b.machine; $('#benchCode').value=b.code;
+  $('#benchMachine').value=b.machine; $('#benchCode').value=b.code; $('#benchProfile').value=b.profile||'senai';
   SIM.rowText = r => (benchLinesArr[r]||{}).text||'';
   SIM.rowN = r => { const t=(benchLinesArr[r]||{}).text||''; return (t.match(/^\s*(N\d+)/i)||['','linha '+(r+1)])[1].toUpperCase(); };
   SIM.rowEl = r => $(`.bl[data-r="${r}"]`);
@@ -873,11 +961,22 @@ function openBench(){
   benchRun();
 }
 let benchLinesArr=[];
+/* Máquinas calibradas com o SSCNC: ponta na troca (valor certo do G50) por tipo de ferramenta */
+const G50_CAL={vnmg95:[400,409.65], tnmg93:[400,409.65], desb:[400,409.65], vnmg725:[380,393.85], acab:[380,393.85], bedame:[384.6,400.7]};
+const BENCH_PROFILE={senai:{face:-22, front:true}, casa:{face:-18, front:false}};
+const CT_TYPE={1:'vnmg95',2:'vnmg95',3:'tnmg93',4:'tnmg93',5:'vnmg725',6:'vnmg725',7:'bedame',8:'bedame'};
+function benchTranslate(b){
+  const pf=BENCH_PROFILE[b.profile||'senai'], tools=b.tools.torno;
+  return CNC.translateG50(b.code,{front:pf.front, home:pos=>{ const t=tools[String(pos).padStart(2,'0')], c=G50_CAL[t&&t.type]||G50_CAL.desb; return {x:c[0], z:c[1]-pf.face}; }});
+}
 function benchRun(){
   const b=benchState(); b.code=$('#benchCode').value; save();
   const m=b.machine;
+  const tr=m==='torno'?benchTranslate(b):{text:b.code,usesG50:false};
   benchLinesArr=b.code.split('\n').map((t,i)=>({row:i, text:t, n:null}));
-  runSim({lines:benchLinesArr, machine:m, part:benchPart(), tools:b.tools[m], sim:true});
+  const exec=tr.text.split('\n').map((t,i)=>({row:i, text:t, n:null}));
+  runSim({lines:exec, machine:m, part:benchPart(), tools:b.tools[m], sim:true});
+  if(tr.usesG50){ perfectSetup(); renderCRT(); }
   const errs={}; (SIM.res?SIM.res.errs:[]).forEach(e=>errs[e.row]=e.msg);
   $('#benchLines').innerHTML=benchLinesArr.map((l,i)=>{
     if(!l.text.trim()) return '';
@@ -895,6 +994,17 @@ function benchRun(){
   showAlarms(SIM.alarms||[]);
 }
 $('#benchRun').onclick=benchRun;
+function benchPick(accept, cb, binary){ const f=$('#benchFile'); f.accept=accept; f.value=''; f.onchange=()=>{ const file=f.files[0]; if(!file) return; const rd=new FileReader(); rd.onload=()=>cb(rd.result,file.name); binary?rd.readAsArrayBuffer(file):rd.readAsText(file,'latin1'); }; f.click(); }
+$('#benchOpen').onclick=()=>benchPick('.cnc,.nc,.txt',(txt)=>{ $('#benchCode').value=txt.replace(/\r/g,''); benchRun(); toast('Programa carregado.'); });
+$('#benchCt').onclick=()=>benchPick('.ct',(buf)=>{ const v=new DataView(buf), b=benchState(), tools={};
+  for(let o=0;o+72<=buf.byteLength;o+=72){ const pos=v.getInt32(o,true), no=v.getInt32(o+4,true); if(pos>=1&&pos<=8&&no>0) tools[String(pos).padStart(2,'0')]={type:CT_TYPE[no]||'desb', v:(TOOL_TYPES.torno[CT_TYPE[no]||'desb']).def}; }
+  b.tools.torno=tools; benchRun(); toast('Ferramentas carregadas no tambor.'); },true);
+$('#benchWp').onclick=()=>benchPick('.wp',(buf)=>{ const v=new DataView(buf), L=v.getFloat64(0,true), D=v.getFloat64(8,true), b=benchState();
+  b.stock.torno={stock:[D,Math.min(L,100)],face:0}; benchRun(); toast(`Tarugo ${L} × Ø${D} carregado.`); },true);
+$('#benchProfile').onchange=()=>{ benchState().profile=$('#benchProfile').value; benchRun(); };
+$('#benchBracinho').onclick=()=>{ const b=benchState(); b.machine='torno'; $('#benchMachine').value='torno'; b.profile='senai'; $('#benchProfile').value='senai';
+  b.tools.torno={'02':{type:'vnmg95',v:0.4},'04':{type:'vnmg95',v:0.4},'08':{type:'bedame',v:3}}; b.stock.torno={stock:[22,100],face:0};
+  $('#benchCode').value=BRACINHO_EX; benchRun(); };
 $('#benchClear').onclick=()=>{ $('#benchCode').value=''; benchRun(); $('#benchCode').focus(); };
 $('#benchExample').onclick=()=>{ const b=benchState(); $('#benchCode').value=BENCH_EX[b.machine]; benchRun(); };
 $('#benchMachine').onchange=()=>{ const b=benchState(); b.machine=$('#benchMachine').value;

@@ -37,6 +37,7 @@ const G_COMMON = {
 };
 
 const G_TORNO = {
+  73:{n:'Ciclo de REPETIÇÃO DE PERFIL', g:'cyc', d:'Repete o perfil entre os blocos P e Q, aproximando a cada passe. No 1º bloco: U e W = recuo inicial, R = número de passes. Bom para perfis com curvas para dentro.', ex:'G73 P5 Q6 U0.3 W0 F0.15'},
   70:{n:'Ciclo de ACABAMENTO', g:'cyc', d:'Passa uma vez pelo perfil final que está entre os blocos P e Q (o mesmo perfil do G71/G72), tirando o sobremetal que sobrou.', ex:'G70 P200 Q280'},
   71:{n:'Ciclo de DESBASTE longitudinal', g:'cyc', d:'Tira o material em passes paralelos ao eixo Z (ao longo da peça). São DOIS blocos: G71 U(prof. por passe) R(recuo) e G71 P(1º bloco do perfil) Q(último) U(sobremetal em X) W(sobremetal em Z) F(avanço).', ex:'G71 U1. R1.'},
   72:{n:'Ciclo de DESBASTE TRANSVERSAL (faceamento)', g:'cyc', d:'Tira material em passes paralelos à face (descendo em X). DOIS blocos: G72 W(prof. por passe) R(recuo) e G72 P Q U W F.', ex:'G72 W1. R1.'},
